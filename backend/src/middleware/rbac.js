@@ -13,11 +13,14 @@ function rbac(allowedRoles) {
 // For centre_staff routes that must be scoped to their own centre only —
 // e.g. GET /centres/:centreId/queue. Admins bypass the scope check.
 function scopedToOwnCentre(req, res, next) {
-  if (req.user.role === 'admin') return next();
+  if (req.user.role === 'admin' || req.user.role === 'state_admin') return next();
   if (req.user.role === 'centre_staff' && String(req.user.centreId) === String(req.params.centreId)) {
     return next();
   }
   return res.status(403).json({ success: false, message: 'Not authorized for this centre' });
 }
 
-module.exports = { rbac, scopedToOwnCentre };
+rbac.rbac = rbac;
+rbac.scopedToOwnCentre = scopedToOwnCentre;
+
+module.exports = rbac;
