@@ -32,26 +32,33 @@ export default function AdminDashboard() {
     }
   };
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadData();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const kpis = analytics?.kpis || {
-    totalFarmers: 4,
-    farmersToday: 3,
-    slotsBookedToday: 24,
-    totalCapacityToday: 195,
-    capacityUtilization: 48,
-    totalVolumeQuintals: 189.2,
-    totalPaymentsDisbursed: 458800,
-    pendingPaymentsAmount: 62500,
-    averageWaitMinutes: 18,
+    totalFarmers: 35,
+    farmersToday: 18,
+    slotsBookedToday: 64,
+    totalCapacityToday: 250,
+    capacityUtilization: 68,
+    totalVolumeQuintals: 2088.6,
+    totalPaymentsDisbursed: 7169124,
+    pendingPaymentsAmount: 345000,
+    averageWaitMinutes: 14,
   };
 
   const trends = analytics?.procurementTrends || [
-    { day: 'Mon', volume: 45 },
-    { day: 'Tue', volume: 62 },
-    { day: 'Wed', volume: 55 },
-    { day: 'Thu', volume: 80 },
-    { day: 'Fri', volume: 95 },
-    { day: 'Sat', volume: 110 },
-    { day: 'Sun', volume: 88 },
+    { day: 'Mon', volume: 180 },
+    { day: 'Tue', volume: 240 },
+    { day: 'Wed', volume: 310 },
+    { day: 'Thu', volume: 290 },
+    { day: 'Fri', volume: 380 },
+    { day: 'Sat', volume: 420 },
+    { day: 'Sun', volume: 268 },
   ];
 
   const centres = analytics?.centrePerformance || [];
@@ -60,6 +67,7 @@ export default function AdminDashboard() {
     { district: 'Kaithal', totalCentres: 1, dailyCapacity: 40, bookedCount: 22, congestionScore: 55 },
     { district: 'Fatehabad', totalCentres: 1, dailyCapacity: 45, bookedCount: 41, congestionScore: 91 },
     { district: 'Hisar', totalCentres: 1, dailyCapacity: 60, bookedCount: 28, congestionScore: 46 },
+    { district: 'Karnal', totalCentres: 1, dailyCapacity: 55, bookedCount: 32, congestionScore: 58 },
   ];
 
   const maxVolume = Math.max(...trends.map((t) => t.volume), 1);

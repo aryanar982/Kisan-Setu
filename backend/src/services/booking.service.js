@@ -3,11 +3,41 @@ const Slot = require('../models/Slot');
 const Centre = require('../models/Centre');
 const Booking = require('../models/Booking');
 const Token = require('../models/Token');
+const Crop = require('../models/Crop');
 const { generateTokenNumber } = require('../utils/queueToken');
 const { getIO } = require('../sockets/queue.socket');
 const QRCode = require('qrcode');
 
 async function createBooking({ farmerId, centreId, slotId, cropType, estimatedQuantity }) {
+  // Realistic Validation 1: Require farmer to have registered crop produce
+  const registeredCrops = await Crop.find({ farmerId, status: { $ne: 'rejected' } });
+  if (!registeredCrops || registeredCrops.length === 0) {
+    const err = new Error('Produce registration required: You must first register your crop and landholding before booking a procurement slot.');
+    err.status = 400;
+    throw err;
+  }
+
+  const targetCrop = (cropType || 'Wheat').trim().toLowerCase();
+  const cropMatch = registeredCrops.some((c) => c.cropType.trim().toLowerCase() === targetCrop);
+  if (!cropMatch) {
+    const registeredNames = registeredCrops.map((c) => c.cropType).join(', ');
+    const err = new Error(`Crop mismatch: You have only registered [${registeredNames}]. Please select one of your registered crops or register ${cropType} first.`);
+    err.status = 400;
+    throw err;
+  }
+
+  // Realistic Validation 2: Prevent duplicate active booking on the same slot
+  const existingSlotBooking = await Booking.findOne({
+    farmerId,
+    slotId,
+    status: { $in: ['booked', 'checked_in', 'serving'] },
+  });
+  if (existingSlotBooking) {
+    const err = new Error('Duplicate booking restricted: You already hold an active token for this slot.');
+    err.status = 409;
+    throw err;
+  }
+
   // Step 1: Atomic slot capacity check-and-increment
   const slot = await Slot.findOneAndUpdate(
     { _id: slotId, centreId, $expr: { $lt: ['$bookedCount', '$capacity'] } },

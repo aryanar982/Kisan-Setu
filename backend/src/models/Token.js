@@ -9,7 +9,7 @@ const tokenSchema = new mongoose.Schema(
     qrData: { type: String }, // JSON encoded QR payload or data string
     status: {
       type: String,
-      enum: ['issued', 'checked_in', 'in_queue', 'being_served', 'served', 'no_show'],
+      enum: ['issued', 'checked_in', 'in_queue', 'being_served', 'served', 'no_show', 'cancelled'],
       default: 'issued',
     },
     queuePosition: { type: Number, default: 0 },

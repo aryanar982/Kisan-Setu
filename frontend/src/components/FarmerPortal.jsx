@@ -102,19 +102,11 @@ export default function FarmerPortal({
     if (!farmer) return;
     try {
       const res = await api.getCrops();
-      if (res.success) setCrops(res.data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const loadBookings = async () => {
-    try {
-      const res = await api.getMyBookings();
       if (res.success) {
-        setBookings(res.data);
-        if (res.data.length > 0 && res.data[0].token && res.data[0].token.centreId) {
-          loadLiveQueue(res.data[0].token.centreId._id || res.data[0].token.centreId);
+        setCrops(res.data);
+        if (res.data.length > 0) {
+          setSelectedCrop(res.data[0].cropType);
+          setCropQuantity(res.data[0].estimatedQuantity || 35);
         }
       }
     } catch (e) {
@@ -122,62 +114,16 @@ export default function FarmerPortal({
     }
   };
 
-  const loadPayments = async () => {
-    try {
-      const res = await api.getMyPayments();
-      if (res.success) setPayments(res.data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const loadMspRates = async () => {
-    try {
-      const res = await api.getMspRates();
-      if (res.success) setMspRates(res.data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const loadAiRecommendations = async () => {
-    try {
-      const res = await api.getAiRecommendations('?userLat=29.5334&userLng=75.0298');
-      if (res.success) setAiRecs(res.data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const loadLiveQueue = async (centreId) => {
-    try {
-      const res = await api.getQueue(centreId);
-      if (res.success) setActiveQueue(res.data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleSelectCentreForBooking = async (centre) => {
-    setSelectedCentre(centre);
-    setActiveTab('bookSlot');
-    try {
-      const res = await api.getSlots(centre._id, selectedDate);
-      if (res.success) setAvailableSlots(res.data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleDateChange = async (date) => {
-    setSelectedDate(date);
-    if (selectedCentre) {
-      const res = await api.getSlots(selectedCentre._id, date);
-      if (res.success) setAvailableSlots(res.data);
-    }
-  };
-
   const handleBookSlot = async () => {
+    if (!farmer) {
+      alert('Please sign in with your mobile number to reserve a mandi slot.');
+      return;
+    }
+    if (crops.length === 0) {
+      alert('Produce Registration Required: Under APMC regulations, you must first register your crop in the "Produce Registration" tab before booking a slot.');
+      setActiveTab('crops');
+      return;
+    }
     if (!selectedCentre || !selectedSlotId) {
       alert('Please select a centre and an available time slot.');
       return;
@@ -214,8 +160,11 @@ export default function FarmerPortal({
         landAreaAcres: newCropLand,
       });
       if (res.success) {
-        alert('Crop registered successfully!');
-        loadCrops();
+        confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
+        alert(`✓ Produce registered: ${newCropType} (${newCropQuantity} Qtl). You can now reserve an APMC procurement slot.`);
+        await loadCrops();
+        setSelectedCrop(newCropType);
+        setCropQuantity(newCropQuantity);
       }
     } catch (err) {
       alert(err.message);
@@ -628,46 +577,69 @@ export default function FarmerPortal({
             </div>
 
             {/* Date and Crop Selection */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-[#142217] uppercase tracking-wider mb-1.5">
-                  Procurement Date
-                </label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  min={new Date().toISOString().slice(0, 10)}
-                  onChange={(e) => handleDateChange(e.target.value)}
-                  className="input-field font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#142217] uppercase tracking-wider mb-1.5">
-                  Crop & Estimated Weight
-                </label>
-                <div className="flex gap-2">
-                  <select
-                    value={selectedCrop}
-                    onChange={(e) => setSelectedCrop(e.target.value)}
-                    className="input-field w-1/2 font-semibold"
+            {crops.length === 0 ? (
+              <div className="bg-amber-50 border-2 border-amber-300 p-5 rounded-2xl flex items-start gap-3.5 shadow-sm">
+                <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-xs text-amber-950">
+                  <span className="font-extrabold text-sm block">Produce Registration Required Before Booking</span>
+                  <p>
+                    Under APMC procurement guidelines, you must register your harvest produce (crop type, variety, and acreage) before booking a mandi time slot.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('crops')}
+                    className="btn-gold mt-2 py-2 px-4 text-xs font-extrabold shadow-md"
                   >
-                    <option value="Wheat">Wheat (गेहूं)</option>
-                    <option value="Mustard">Mustard (सरसों)</option>
-                    <option value="Paddy">Paddy (धान)</option>
-                    <option value="Cotton">Cotton (कपास)</option>
-                    <option value="Gram">Gram (चना)</option>
-                  </select>
-                  <input
-                    type="number"
-                    value={cropQuantity}
-                    onChange={(e) => setCropQuantity(e.target.value)}
-                    placeholder="Qtl"
-                    className="input-field w-1/2 font-semibold"
-                  />
+                    Register Produce Now ➔
+                  </button>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#142217] uppercase tracking-wider mb-1.5">
+                    Procurement Date
+                  </label>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => handleDateChange(e.target.value)}
+                    className="input-field font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#142217] uppercase tracking-wider mb-1.5">
+                    Registered Produce & Declared Weight
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedCrop}
+                      onChange={(e) => {
+                        setSelectedCrop(e.target.value);
+                        const matched = crops.find((c) => c.cropType === e.target.value);
+                        if (matched) setCropQuantity(matched.estimatedQuantity || 35);
+                      }}
+                      className="input-field w-1/2 font-semibold"
+                    >
+                      {crops.map((c) => (
+                        <option key={c._id} value={c.cropType}>
+                          {c.cropType} ({c.estimatedQuantity} Qtl)
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      value={cropQuantity}
+                      onChange={(e) => setCropQuantity(e.target.value)}
+                      placeholder="Qtl"
+                      className="input-field w-1/2 font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Live MSP Calculation Banner */}
             <div className="bg-[#FFF9ED] border border-[#C98A2E]/30 p-4 rounded-xl flex items-center justify-between text-xs">

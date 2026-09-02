@@ -19,19 +19,38 @@ async function recordProcurement({
 }) {
   const booking = await Booking.findById(bookingId).populate('farmerId centreId');
   if (!booking) {
-    const err = new Error('Booking not found');
+    const err = new Error('Booking record not found');
     err.status = 404;
+    throw err;
+  }
+
+  // Realistic Validation: Prevent duplicate procurement
+  const existingProc = await Procurement.findOne({ bookingId: booking._id });
+  if (existingProc) {
+    const err = new Error('Duplicate procurement prohibited: This booking has already been procured and disbursed.');
+    err.status = 409;
     throw err;
   }
 
   const gross = Number(grossWeight);
   const tare = Number(tareWeight) || 0;
+  if (gross <= tare) {
+    const err = new Error(`Weighbridge error: Gross truck weight (${gross} Qtl) must be strictly greater than tare weight (${tare} Qtl).`);
+    err.status = 400;
+    throw err;
+  }
+
   const netWeight = Math.max(0, gross - tare);
   const rejected = Number(rejectedQuantity) || 0;
-  const acceptedQuantity = Math.max(0, netWeight - rejected);
+  if (rejected > netWeight) {
+    const err = new Error(`Deduction error: Rejected quantity (${rejected} Qtl) cannot exceed net grain weight (${netWeight} Qtl).`);
+    err.status = 400;
+    throw err;
+  }
 
+  const acceptedQuantity = Math.max(0, netWeight - rejected);
   if (acceptedQuantity <= 0) {
-    const err = new Error('Accepted quantity must be greater than zero');
+    const err = new Error('Accepted quantity must be greater than zero for MSP payout disbursal');
     err.status = 400;
     throw err;
   }

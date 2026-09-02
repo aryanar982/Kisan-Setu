@@ -22,6 +22,7 @@ const procurementSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+procurementSchema.index({ bookingId: 1 }, { unique: true });
 procurementSchema.index({ centreId: 1, createdAt: -1 });
 procurementSchema.index({ farmerId: 1, createdAt: -1 });
 
