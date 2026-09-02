@@ -10,9 +10,9 @@ async function start() {
   const server = http.createServer(app);
   initSocket(server);
 
-  server.listen(env.port, () => {
+  server.listen(env.port, '0.0.0.0', () => {
     // eslint-disable-next-line no-console
-    console.log(`API running on http://localhost:${env.port}`);
+    console.log(`API running on http://localhost:${env.port} and http://127.0.0.1:${env.port}`);
   });
 }
 

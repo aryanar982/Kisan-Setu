@@ -114,6 +114,81 @@ export default function FarmerPortal({
     }
   };
 
+  const loadBookings = async () => {
+    try {
+      const res = await api.getMyBookings();
+      if (res && res.success) {
+        setBookings(res.data || []);
+        if (res.data && res.data.length > 0 && res.data[0].token && res.data[0].token.centreId) {
+          loadLiveQueue(res.data[0].token.centreId._id || res.data[0].token.centreId);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const loadPayments = async () => {
+    try {
+      const res = await api.getMyPayments();
+      if (res && res.success) setPayments(res.data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const loadMspRates = async () => {
+    try {
+      const res = await api.getMspRates();
+      if (res && res.success) setMspRates(res.data || {});
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const loadAiRecommendations = async () => {
+    try {
+      const res = await api.getAiRecommendations('?userLat=29.5334&userLng=75.0298');
+      if (res && res.success) setAiRecs(res.data || null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const loadLiveQueue = async (centreId) => {
+    if (!centreId) return;
+    try {
+      const res = await api.getQueue(centreId);
+      if (res && res.success) setActiveQueue(res.data || null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSelectCentreForBooking = async (centre) => {
+    if (!centre) return;
+    setSelectedCentre(centre);
+    setActiveTab('bookSlot');
+    try {
+      const res = await api.getSlots(centre._id, selectedDate);
+      if (res && res.success) setAvailableSlots(res.data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDateChange = async (date) => {
+    setSelectedDate(date);
+    if (selectedCentre) {
+      try {
+        const res = await api.getSlots(selectedCentre._id, date);
+        if (res && res.success) setAvailableSlots(res.data || []);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
   const handleBookSlot = async () => {
     if (!farmer) {
       alert('Please sign in with your mobile number to reserve a mandi slot.');

@@ -45,23 +45,29 @@ export default function App() {
     const s = io(window.location.origin, { transports: ['websocket', 'polling'] });
     setSocket(s);
 
-    const savedUser = getCurrentUser();
-    if (savedUser) {
-      if (savedUser.role === 'farmer') setFarmer(savedUser);
-      else setStaff(savedUser);
-    } else {
-      // Pre-seed mock farmer for instant click-through demonstration
-      setFarmer({
-        _id: '64f8a12b3c9e123456789012',
-        name: 'Ramesh Kumar',
-        phone: '9876500001',
-        village: 'Bhavdin',
-        district: 'Sirsa',
-        state: 'Haryana',
-      });
-    }
+    const initFarmerAuth = async () => {
+      try {
+        const res = await api.login({ phone: '9876500001', password: 'password123' });
+        if (res && res.success) {
+          setAuthToken(res.data.accessToken);
+          setCurrentUser({ ...res.data.farmer, role: 'farmer' });
+          setFarmer(res.data.farmer);
+        }
+      } catch (e) {
+        console.warn('Auto farmer login fallback:', e.message);
+        setFarmer({
+          _id: '6a989238b12c298f488371df',
+          name: 'Ramesh Kumar',
+          phone: '9876500001',
+          village: 'Bhavdin',
+          district: 'Sirsa',
+          state: 'Haryana',
+        });
+      }
+      loadNotifications();
+    };
 
-    loadNotifications();
+    initFarmerAuth();
 
     return () => {
       s.disconnect();
