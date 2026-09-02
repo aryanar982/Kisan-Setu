@@ -10,7 +10,7 @@ const bookingSchema = new mongoose.Schema(
     tokenNumber: { type: String },
     status: {
       type: String,
-      enum: ['booked', 'checked_in', 'cancelled', 'no_show', 'completed'],
+      enum: ['booked', 'checked_in', 'serving', 'cancelled', 'no_show', 'completed'],
       default: 'booked',
     },
   },

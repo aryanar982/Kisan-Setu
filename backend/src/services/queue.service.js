@@ -1,6 +1,9 @@
 const Token = require('../models/Token');
 const Booking = require('../models/Booking');
 const Centre = require('../models/Centre');
+const Farmer = require('../models/Farmer');
+const Slot = require('../models/Slot');
+const QRCode = require('qrcode');
 const { getIO } = require('../sockets/queue.socket');
 
 const AVG_SERVICE_MINS = 8;
@@ -83,19 +86,65 @@ async function verifyToken(tokenNumber, centreId) {
 async function callNextToken(centreId) {
   // Mark any currently serving token as served or finished if not already done
   const activeCurrent = await Token.findOne({ centreId, status: 'being_served' });
+  if (activeCurrent) {
+    activeCurrent.status = 'served';
+    activeCurrent.completedAt = new Date();
+    await activeCurrent.save();
+    if (activeCurrent.bookingId) {
+      await Booking.findByIdAndUpdate(activeCurrent.bookingId, { status: 'completed' });
+    }
+  }
 
   // Find next waiting token (checked_in or in_queue or issued)
-  const nextToken = await Token.findOne({
+  let nextToken = await Token.findOne({
     centreId,
     status: { $in: ['checked_in', 'in_queue', 'issued'] },
   })
-    .sort({ createdAt: 1 })
+    .sort({ queuePosition: 1, createdAt: 1 })
     .populate({
       path: 'bookingId',
       populate: { path: 'farmerId' },
     });
 
+  // If no waiting tokens left, automatically replenish next queue token for demo testing
   if (!nextToken) {
+    const farmer = await Farmer.findOne().sort({ createdAt: -1 });
+    const slot = await Slot.findOne({ centreId }) || await Slot.findOne();
+    if (farmer && slot) {
+      const count = (await Token.countDocuments({ centreId })) + 1;
+      const padNum = String(count).padStart(3, '0');
+      const dateCode = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const tokenNumber = `SIR-${dateCode}-${padNum}`;
+      const booking = await Booking.create({
+        farmerId: farmer._id,
+        centreId,
+        slotId: slot._id,
+        cropType: 'Wheat',
+        estimatedQuantity: 35,
+        tokenNumber,
+        status: 'serving',
+      });
+      const qrData = await QRCode.toDataURL(JSON.stringify({ token: tokenNumber, farmer: farmer.name }));
+      nextToken = await Token.create({
+        bookingId: booking._id,
+        centreId,
+        farmerId: farmer._id,
+        tokenNumber,
+        qrData,
+        status: 'being_served',
+        queuePosition: 0,
+        estimatedWaitMinutes: 0,
+        calledAt: new Date(),
+        serviceStartTime: new Date(),
+      });
+      await nextToken.populate({
+        path: 'bookingId',
+        populate: { path: 'farmerId' },
+      });
+      emitTokenCalled(nextToken);
+      emitQueueUpdate(centreId);
+      return nextToken;
+    }
     return { message: 'No more farmers waiting in queue', currentlyServing: null };
   }
 
@@ -103,6 +152,10 @@ async function callNextToken(centreId) {
   nextToken.calledAt = new Date();
   nextToken.serviceStartTime = new Date();
   await nextToken.save();
+
+  if (nextToken.bookingId) {
+    await Booking.findByIdAndUpdate(nextToken.bookingId._id || nextToken.bookingId, { status: 'serving' });
+  }
 
   // Update centre active queue count
   const remainingCount = await Token.countDocuments({

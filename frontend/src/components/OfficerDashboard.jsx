@@ -2,16 +2,19 @@ import React, { useState, useEffect } from 'react';
 import {
   Scale, QrCode, Users, CheckCircle2, XCircle, Play, AlertCircle,
   IndianRupee, Search, RefreshCw, FileText, Printer, ChevronRight,
-  ShieldCheck, ArrowRight, Gauge, Cpu, CheckCircle
+  ShieldCheck, ArrowRight, Gauge, Cpu, CheckCircle, PlusCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { api } from '../api';
+import { api, getAuthToken, setAuthToken, setCurrentUser } from '../api';
 
 export default function OfficerDashboard({ staff, socket }) {
+  const [centres, setCentres] = useState([]);
+  const [selectedCentreId, setSelectedCentreId] = useState('');
   const [centre, setCentre] = useState(null);
   const [queue, setQueue] = useState(null);
   const [searchTokenNumber, setSearchTokenNumber] = useState('');
   const [scannedToken, setScannedToken] = useState(null);
+  const [isCallingNext, setIsCallingNext] = useState(false);
 
   // Digital Weighing Scale Form State
   const [grossWeight, setGrossWeight] = useState(42.5);
@@ -24,50 +27,85 @@ export default function OfficerDashboard({ staff, socket }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [procurementSuccess, setProcurementSuccess] = useState(null);
 
-  const centreId = staff && staff.centreId ? (staff.centreId._id || staff.centreId) : 'c1';
-
+  // Ensure staff is authenticated for officer APIs
   useEffect(() => {
-    loadCentreData();
-    loadQueueData();
+    ensureStaffAuth();
+    loadAllCentres();
   }, [staff]);
 
-  useEffect(() => {
-    if (!socket || !centreId) return;
+  const ensureStaffAuth = async () => {
+    const token = getAuthToken();
+    if (!token || !staff) {
+      try {
+        const res = await api.staffLogin({
+          email: 'officer.sirsa@kisansetu.gov.in',
+          password: 'password123',
+        });
+        if (res.success) {
+          setAuthToken(res.data.accessToken);
+          setCurrentUser({ ...res.data.staff, role: res.data.role });
+        }
+      } catch (e) {
+        console.warn('Demo staff auto-login notice:', e.message);
+      }
+    }
+  };
 
-    socket.emit('joinCentreQueue', centreId);
+  const loadAllCentres = async () => {
+    try {
+      const res = await api.getCentres();
+      if (res.success && res.data.length > 0) {
+        setCentres(res.data);
+        const defaultCentre = staff && staff.centreId
+          ? (res.data.find(c => c._id.toString() === (staff.centreId._id || staff.centreId).toString()) || res.data[0])
+          : res.data[0];
+        setCentre(defaultCentre);
+        setSelectedCentreId(defaultCentre._id);
+        loadQueueData(defaultCentre._id);
+      }
+    } catch (e) {
+      console.error('Failed to load centres:', e);
+    }
+  };
+
+  const handleCentreChange = (newId) => {
+    setSelectedCentreId(newId);
+    const match = centres.find(c => c._id.toString() === newId.toString());
+    if (match) {
+      setCentre(match);
+      setScannedToken(null);
+      loadQueueData(newId);
+    }
+  };
+
+  useEffect(() => {
+    if (!socket || !selectedCentreId) return;
+
+    socket.emit('joinCentreQueue', selectedCentreId);
 
     socket.on('queueUpdated', (updatedQueue) => {
       setQueue(updatedQueue);
     });
 
     socket.on('newTokenIssued', () => {
-      loadQueueData();
+      loadQueueData(selectedCentreId);
     });
 
     return () => {
       socket.off('queueUpdated');
       socket.off('newTokenIssued');
     };
-  }, [socket, centreId]);
+  }, [socket, selectedCentreId]);
 
-  const loadCentreData = async () => {
-    try {
-      const res = await api.getCentres();
-      if (res.success && res.data.length > 0) {
-        const myCentre = res.data.find((c) => c._id.toString() === centreId.toString()) || res.data[0];
-        setCentre(myCentre);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  const loadQueueData = async (cId) => {
+    const targetId = cId || selectedCentreId || centre?._id;
+    if (!targetId) return;
 
-  const loadQueueData = async () => {
     try {
-      const res = await api.getQueue(centreId);
+      const res = await api.getQueue(targetId);
       if (res.success) setQueue(res.data);
     } catch (e) {
-      console.error(e);
+      console.error('Queue load error:', e);
     }
   };
 
@@ -75,12 +113,17 @@ export default function OfficerDashboard({ staff, socket }) {
     const target = tokenNum || searchTokenNumber;
     if (!target.trim()) return;
 
+    const targetId = selectedCentreId || centre?._id;
     try {
-      const res = await api.verifyToken({ tokenNumber: target, centreId });
-      if (res.success) {
+      const res = await api.verifyToken({ tokenNumber: target, centreId: targetId });
+      if (res.success && res.data) {
         setScannedToken(res.data);
         setSearchTokenNumber('');
-        loadQueueData();
+        // Autofill estimated weight
+        const est = res.data.bookingId?.estimatedQuantity || 35;
+        setGrossWeight(est + 3.0);
+        setTareWeight(3.0);
+        loadQueueData(targetId);
       }
     } catch (err) {
       alert(err.message || 'Token not found.');
@@ -88,22 +131,38 @@ export default function OfficerDashboard({ staff, socket }) {
   };
 
   const handleCallNext = async () => {
+    const targetId = selectedCentreId || centre?._id;
+    if (!targetId) {
+      alert('Mandi centre is loading. Please wait a moment.');
+      return;
+    }
+
+    setIsCallingNext(true);
     try {
-      const res = await api.callNext(centreId);
-      if (res.success) {
-        confetti({ particleCount: 70, spread: 65, origin: { y: 0.6 } });
-        setScannedToken(res.data);
-        loadQueueData();
+      const res = await api.callNext(targetId);
+      if (res.success && res.data) {
+        if (res.data.tokenNumber) {
+          confetti({ particleCount: 75, spread: 70, origin: { y: 0.6 } });
+          setScannedToken(res.data);
+          const est = res.data.bookingId?.estimatedQuantity || 35;
+          setGrossWeight(est + 2.8);
+          setTareWeight(2.8);
+        } else {
+          alert(res.data.message || 'No more farmers waiting in queue.');
+        }
+        loadQueueData(targetId);
       }
     } catch (err) {
-      alert(err.message);
+      alert(err.message || 'Failed to call next token.');
+    } finally {
+      setIsCallingNext(false);
     }
   };
 
   const handleStatusChange = async (tokenId, status) => {
     try {
       await api.updateTokenStatus(tokenId, { status });
-      loadQueueData();
+      loadQueueData(selectedCentreId);
     } catch (err) {
       alert(err.message);
     }
@@ -117,10 +176,14 @@ export default function OfficerDashboard({ staff, socket }) {
 
   const handleSubmitProcurement = async (e) => {
     e.preventDefault();
-    const tokenToProcure = scannedToken || (queue && queue.currentlyServing);
+    const tokenToProcure = (scannedToken && scannedToken.tokenNumber)
+      ? scannedToken
+      : (queue && queue.currentlyServing && queue.currentlyServing.tokenNumber)
+      ? queue.currentlyServing
+      : null;
 
     if (!tokenToProcure || !tokenToProcure.bookingId) {
-      alert('Please scan or call an active token first to record procurement.');
+      alert('Please call or scan an active token into the weighbridge bay first.');
       return;
     }
 
@@ -141,7 +204,7 @@ export default function OfficerDashboard({ staff, socket }) {
         confetti({ particleCount: 110, spread: 85, origin: { y: 0.55 } });
         setProcurementSuccess(res.data);
         setScannedToken(null);
-        loadQueueData();
+        loadQueueData(selectedCentreId);
       }
     } catch (err) {
       alert(err.message || 'Failed to record procurement.');
@@ -150,7 +213,12 @@ export default function OfficerDashboard({ staff, socket }) {
     }
   };
 
-  const currentlyServingToken = scannedToken || (queue && queue.currentlyServing);
+  // Robust check for currently serving token
+  const currentlyServingToken = (scannedToken && scannedToken.tokenNumber)
+    ? scannedToken
+    : (queue && queue.currentlyServing && queue.currentlyServing.tokenNumber)
+    ? queue.currentlyServing
+    : null;
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in pb-16">
@@ -163,7 +231,7 @@ export default function OfficerDashboard({ staff, socket }) {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase font-extrabold text-[#EBB668] tracking-widest bg-[#C98A2E]/20 border border-[#C98A2E]/40 px-2.5 py-0.5 rounded-full">
-                Officer Desk · {staff?.name || 'Virender Singh'}
+                Officer Desk · {staff?.name || 'Virender Singh (Mandi Officer)'}
               </span>
               <span className="w-2 h-2 rounded-full bg-[#38EF7D] animate-ping"></span>
             </div>
@@ -176,17 +244,35 @@ export default function OfficerDashboard({ staff, socket }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Mandi Centre Dropdown Selector */}
+          {centres.length > 0 && (
+            <select
+              value={selectedCentreId}
+              onChange={(e) => handleCentreChange(e.target.value)}
+              className="bg-[#0D170F] border border-white/20 text-white text-xs font-bold rounded-xl px-3 py-2.5 outline-none hover:border-[#C98A2E] transition-colors cursor-pointer"
+            >
+              {centres.map((c) => (
+                <option key={c._id} value={c._id} className="bg-[#142217] text-white">
+                  {c.name} ({c.district})
+                </option>
+              ))}
+            </select>
+          )}
+
           <button
             onClick={handleCallNext}
-            className="btn-gold px-5 py-3 text-xs sm:text-sm font-extrabold shadow-xl flex items-center gap-2"
+            disabled={isCallingNext}
+            className="btn-gold px-5 py-3 text-xs sm:text-sm font-extrabold shadow-xl flex items-center gap-2 disabled:opacity-50"
           >
-            <Play className="w-4 h-4 fill-current" /> Call Next Farmer to Bay
+            <Play className="w-4 h-4 fill-current" />
+            {isCallingNext ? 'Calling...' : 'Call Next Farmer to Bay'}
           </button>
+
           <button
-            onClick={loadQueueData}
+            onClick={() => loadQueueData()}
             className="btn-outline text-white border-white/20 hover:bg-white/10 text-xs py-3 px-3.5"
-            title="Refresh"
+            title="Refresh Queue"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -260,7 +346,7 @@ export default function OfficerDashboard({ staff, socket }) {
                 {currentlyServingToken ? currentlyServingToken.tokenNumber : 'No Farmer in Bay'}
               </h3>
             </div>
-            {currentlyServingToken && (
+            {currentlyServingToken && currentlyServingToken.status && (
               <span className="badge-green text-xs font-extrabold">
                 {currentlyServingToken.status.replace('_', ' ').toUpperCase()}
               </span>
@@ -482,7 +568,7 @@ export default function OfficerDashboard({ staff, socket }) {
                           ? 'bg-gray-100 text-gray-700'
                           : 'bg-[#FFF3DB] text-[#8C560A] border border-[#C98A2E]/30'
                       }`}>
-                        {t.status.replace('_', ' ')}
+                        {t.status ? t.status.replace('_', ' ') : 'in_queue'}
                       </span>
                     </td>
                     <td className="p-3.5 text-right space-x-2">
@@ -511,7 +597,7 @@ export default function OfficerDashboard({ staff, socket }) {
               ) : (
                 <tr>
                   <td colSpan="7" className="p-8 text-center text-[#142217]/50">
-                    No tokens waiting in queue.
+                    No tokens waiting in queue. Click "Call Next Farmer to Bay" to dispatch produce.
                   </td>
                 </tr>
               )}

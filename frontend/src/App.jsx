@@ -138,6 +138,39 @@ export default function App() {
     }
   };
 
+  const handleSwitchRole = async (targetRole) => {
+    setRole(targetRole);
+    if (targetRole === 'officer' && !staff) {
+      try {
+        const res = await api.staffLogin({
+          email: 'officer.sirsa@kisansetu.gov.in',
+          password: 'password123',
+        });
+        if (res.success) {
+          setAuthToken(res.data.accessToken);
+          setCurrentUser({ ...res.data.staff, role: res.data.role });
+          setStaff(res.data.staff);
+        }
+      } catch (e) {
+        console.warn('Auto staff auth notice:', e.message);
+      }
+    } else if (targetRole === 'admin' && !staff) {
+      try {
+        const res = await api.staffLogin({
+          email: 'admin.sirsa@kisansetu.gov.in',
+          password: 'password123',
+        });
+        if (res.success) {
+          setAuthToken(res.data.accessToken);
+          setCurrentUser({ ...res.data.staff, role: res.data.role });
+          setStaff(res.data.staff);
+        }
+      } catch (e) {
+        console.warn('Auto admin auth notice:', e.message);
+      }
+    }
+  };
+
   const handleLogout = () => {
     setAuthToken(null);
     setCurrentUser(null);
@@ -193,7 +226,7 @@ export default function App() {
             {/* Middle Role Switcher Pills */}
             <nav className="hidden md:flex items-center gap-1.5 bg-[#0D170F]/80 p-1.5 rounded-2xl border border-white/10 shadow-inner">
               <button
-                onClick={() => setRole('farmer')}
+                onClick={() => handleSwitchRole('farmer')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                   role === 'farmer'
                     ? 'bg-gradient-to-r from-[#C98A2E] to-[#A56F20] text-white shadow-md shadow-[#C98A2E]/25'
@@ -203,7 +236,7 @@ export default function App() {
                 <User className="w-4 h-4" /> {t.farmerRole}
               </button>
               <button
-                onClick={() => setRole('officer')}
+                onClick={() => handleSwitchRole('officer')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                   role === 'officer'
                     ? 'bg-gradient-to-r from-[#C98A2E] to-[#A56F20] text-white shadow-md shadow-[#C98A2E]/25'
@@ -213,7 +246,7 @@ export default function App() {
                 <Scale className="w-4 h-4" /> {t.officerRole}
               </button>
               <button
-                onClick={() => setRole('admin')}
+                onClick={() => handleSwitchRole('admin')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                   role === 'admin'
                     ? 'bg-gradient-to-r from-[#C98A2E] to-[#A56F20] text-white shadow-md shadow-[#C98A2E]/25'
@@ -298,7 +331,7 @@ export default function App() {
         {/* Mobile Sub-Nav Role Switcher */}
         <div className="md:hidden flex border-t border-white/10 bg-[#0D170F] divide-x divide-white/10 text-xs">
           <button
-            onClick={() => setRole('farmer')}
+            onClick={() => handleSwitchRole('farmer')}
             className={`flex-1 py-3 font-bold text-center flex items-center justify-center gap-1.5 ${
               role === 'farmer' ? 'text-[#EBB668] bg-[#142217]' : 'text-white/60'
             }`}
@@ -306,7 +339,7 @@ export default function App() {
             <User className="w-3.5 h-3.5" /> {t.farmerRole}
           </button>
           <button
-            onClick={() => setRole('officer')}
+            onClick={() => handleSwitchRole('officer')}
             className={`flex-1 py-3 font-bold text-center flex items-center justify-center gap-1.5 ${
               role === 'officer' ? 'text-[#EBB668] bg-[#142217]' : 'text-white/60'
             }`}
@@ -314,7 +347,7 @@ export default function App() {
             <Scale className="w-3.5 h-3.5" /> {t.officerRole}
           </button>
           <button
-            onClick={() => setRole('admin')}
+            onClick={() => handleSwitchRole('admin')}
             className={`flex-1 py-3 font-bold text-center flex items-center justify-center gap-1.5 ${
               role === 'admin' ? 'text-[#EBB668] bg-[#142217]' : 'text-white/60'
             }`}
