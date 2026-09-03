@@ -245,3 +245,115 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #C98A2E;
 }
+
+/* Dark mode keeps the existing green and gold brand contrast. */
+.dark-mode body {
+  --paper: #101812;
+  --paper-card: #18251B;
+  --paper-subtle: #223126;
+  --ink: #F4F1E8;
+  --border: #3B4B3E;
+  --border-light: #2C3A2F;
+  background-color: var(--paper);
+  color: var(--ink);
+  background-image:
+    radial-gradient(at 100% 0%, rgba(201, 138, 46, 0.12) 0px, transparent 45%),
+    radial-gradient(at 0% 100%, rgba(107, 127, 97, 0.12) 0px, transparent 45%);
+}
+
+.dark-mode .bg-\[\#F7F5EE\],
+.dark-mode .bg-white,
+.dark-mode .bg-\[\#FFFFFF\] {
+  background-color: #18251B !important;
+  color: #F4F1E8;
+}
+
+.dark-mode .bg-\[\#EDEAE1\] {
+  background-color: #223126 !important;
+}
+
+.dark-mode .text-\[\#142217\],
+.dark-mode .text-\[\#142217\]\/60,
+.dark-mode .text-\[\#142217\]\/70,
+.dark-mode .text-\[\#142217\]\/80,
+.dark-mode .text-\[\#142217\]\/50 {
+  color: #F4F1E8 !important;
+}
+
+.dark-mode .text-\[\#6B7F61\],
+.dark-mode .text-\[\#8FA584\] {
+  color: #AFC0A5 !important;
+}
+
+.dark-mode .hover\:text-\[\#142217\]:hover {
+  color: #F4F1E8 !important;
+}
+
+.dark-mode .hover\:bg-white\/60:hover {
+  background-color: #2B3B2E !important;
+}
+
+.dark-mode .farmer-tabs-nav {
+  background-color: #18251B !important;
+  border-color: #3B4B3E !important;
+}
+
+.dark-mode .farmer-tabs-nav button:not(.bg-\[\#142217\]) {
+  color: #B9C8B1 !important;
+}
+
+.dark-mode .farmer-tabs-nav button:not(.bg-\[\#142217\]):hover {
+  color: #FFFFFF !important;
+  background-color: #2B3B2E !important;
+}
+
+.dark-mode .admin-tabs-nav {
+  border-color: #3B4B3E !important;
+}
+
+.dark-mode .admin-tabs-nav button:not(.bg-\[\#142217\]) {
+  color: #B9C8B1 !important;
+}
+
+.dark-mode .admin-tabs-nav button:not(.bg-\[\#142217\]):hover {
+  color: #FFFFFF !important;
+  background-color: #2B3B2E !important;
+}
+
+.dark-mode .border-\[\#DDD8CB\],
+.dark-mode .border-\[\#DDD8CB\]\/50,
+.dark-mode .border-\[\#DDD8CB\]\/60,
+.dark-mode .border-\[\#DDD8CB\]\/70 {
+  border-color: #3B4B3E !important;
+}
+
+.dark-mode .kisan-card,
+.dark-mode .kisan-card-gold {
+  background: #18251B;
+  border-color: #3B4B3E;
+  color: #F4F1E8;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.24);
+}
+
+.dark-mode .input-field,
+.dark-mode select,
+.dark-mode input {
+  background-color: #18251B;
+  color: #F4F1E8;
+  border-color: #4A5D4E;
+}
+
+.dark-mode .btn-outline {
+  background: #18251B;
+  color: #F4F1E8;
+  border-color: #4A5D4E;
+}
+
+.dark-mode .divide-\[\#DDD8CB\]\/60 > :not([hidden]) ~ :not([hidden]),
+.dark-mode .divide-\[\#DDD8CB\]\/50 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #3B4B3E;
+}
+
+.dark-mode ::-webkit-scrollbar-track {
+  background: #18251B;
+}

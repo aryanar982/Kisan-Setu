@@ -6,7 +6,7 @@ const slotController = require('../controllers/slot.controller');
 
 const router = express.Router();
 
-router.get('/centre/:centreId', asyncHandler(slotController.getSlots));
+router.get('/centre/:centreId', requireAuth, rbac(['farmer', 'admin', 'state_admin', 'district_admin', 'centre_staff']), asyncHandler(slotController.getSlots));
 router.post('/', requireAuth, rbac(['admin', 'centre_staff', 'district_admin']), asyncHandler(slotController.createSlot));
 router.put('/:id', requireAuth, rbac(['admin', 'centre_staff', 'district_admin']), asyncHandler(slotController.updateSlot));
 

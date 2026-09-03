@@ -27,22 +27,26 @@ async function getAdminOverview() {
   const farmersToday = todayProcurements.length > 0 ? todayProcurements.length : Math.min(totalFarmersProcured, 22);
 
   // Payments aggregation with complete status breakdown (Point 17)
+  // Admin-approved payments should be considered as completed
   const completedPayments = await Payment.aggregate([
-    { $match: { status: 'completed' } },
+    { $match: { status: { $in: ['completed', 'approved'] } } },
     { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
   ]);
   const totalPaymentsDisbursed = completedPayments[0]?.total || 0;
   const completedPaymentsCount = completedPayments[0]?.count || 0;
 
-  const processingPayments = await Payment.aggregate([
+  const initiatedPayments = await Payment.aggregate([
     { $match: { status: { $in: ['initiated', 'processing'] } } },
     { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
   ]);
-  const processingPaymentsAmount = processingPayments[0]?.total || 345000;
-  const processingPaymentsCount = processingPayments[0]?.count || 3;
-
-  const pendingPaymentsAmount = 120000;
-  const failedPaymentsAmount = 0;
+  const dbtInitiated = initiatedPayments[0]?.total || 0;
+  const dbtInitiatedCount = initiatedPayments[0]?.count || 0;
+  const failedPayments = await Payment.aggregate([
+    { $match: { status: 'failed' } },
+    { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
+  ]);
+  const failedPaymentsAmount = failedPayments[0]?.total || 0;
+  const dbtTotal = totalPaymentsDisbursed + dbtInitiated;
 
   // Procurement volume aggregation
   const volumeAgg = await Procurement.aggregate([
@@ -267,6 +271,10 @@ async function getAdminOverview() {
   const recentPayments = await Payment.find()
     .populate('farmerId', 'name phone village bankDetails')
     .populate('centreId', 'name district')
+    .populate({
+      path: 'procurementId',
+      populate: { path: 'recordedBy', select: 'name email role' },
+    })
     .sort({ createdAt: -1 })
     .limit(50)
     .lean();
@@ -282,9 +290,13 @@ async function getAdminOverview() {
       totalVolumeQuintals: Number(totalVolumeQuintals.toFixed(1)),
       totalPaymentsDisbursed,
       completedPaymentsCount,
-      processingPaymentsAmount,
-      processingPaymentsCount,
-      pendingPaymentsAmount,
+      dbtTransferred: totalPaymentsDisbursed,
+      dbtInitiated,
+      dbtInitiatedCount,
+      dbtTotal,
+      processingPaymentsAmount: dbtInitiated,
+      processingPaymentsCount: dbtInitiatedCount,
+      pendingPaymentsAmount: 0,
       failedPaymentsAmount,
       averageWaitMinutes: avgWait,
       systemHealth: {

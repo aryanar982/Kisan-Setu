@@ -8,7 +8,11 @@ async function getMyPayments(req, res) {
 
 async function updateStatus(req, res) {
   const { status, failureReason } = req.body;
-  const payment = await paymentService.updatePaymentStatus(req.params.id, status, { failureReason });
+  const payment = await paymentService.updatePaymentStatus(req.params.id, status, {
+    failureReason,
+    actorId: req.user.id,
+    actorRole: req.user.role,
+  });
   return ok(res, payment, 'Payment status updated');
 }
 

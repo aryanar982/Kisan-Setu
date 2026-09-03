@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Wheat, User, LayoutGrid, BarChart3, Bell, Sparkles, Globe,
   LogOut, LogIn, CheckCircle2, ShieldCheck, Scale, Phone, Key,
-  Radio, Clock, CheckCircle, ChevronDown, ChevronRight
+  Radio, Clock, CheckCircle, ChevronDown, ChevronRight, Sun, Moon
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import FarmerPortal from './components/FarmerPortal';
@@ -10,14 +10,84 @@ import OfficerDashboard from './components/OfficerDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import AiVoiceModal from './components/AiVoiceModal';
 import NotificationDrawer from './components/NotificationDrawer';
-import { api, setAuthToken, setCurrentUser, getCurrentUser } from './api';
+import { api, setAuthToken, setCurrentUser } from './api';
 import { translations } from './translations';
+
+const FARMER_TOKEN_KEY = 'kisan_farmer_auth_token';
+const OFFICER_TOKEN_KEY = 'kisan_officer_auth_token';
+const ADMIN_TOKEN_KEY = 'kisan_admin_auth_token';
+const FARMER_USER_KEY = 'kisan_farmer_user';
+const OFFICER_USER_KEY = 'kisan_officer_user';
+const ADMIN_USER_KEY = 'kisan_admin_user';
+const ACTIVE_ROLE_KEY = 'kisan_active_role';
+
+const DEMO_STAFF_EMAILS = {
+  officer: 'officer.lucknow@kisansetu.gov.in',
+  admin: 'admin.lucknow@kisansetu.gov.in',
+  district_admin: 'district.lucknow@kisansetu.gov.in',
+  state_admin: 'state.delhi@kisansetu.gov.in',
+};
+
+function getStaffTokenKey(targetRole) {
+  if (targetRole === 'officer') return OFFICER_TOKEN_KEY;
+  return ADMIN_TOKEN_KEY; // admin, district_admin, state_admin all use admin token
+}
+
+function getStaffUserKey(targetRole) {
+  if (targetRole === 'officer') return OFFICER_USER_KEY;
+  return ADMIN_USER_KEY; // admin, district_admin, state_admin all use admin user
+}
+
+function isUiRole(value) {
+  return value === 'farmer' || value === 'officer' || value === 'admin' || value === 'district_admin' || value === 'state_admin';
+}
+
+function readStoredUser(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredUser(key, user) {
+  if (user) localStorage.setItem(key, JSON.stringify(user));
+  else localStorage.removeItem(key);
+}
+
+function LoginRequired({ role, onOpenLogin }) {
+  const roleLabel = role === 'officer' ? 'Procurement Officer' : 'Administrator';
+  return (
+    <div className="max-w-xl mx-auto py-12 sm:py-20">
+      <div className="kisan-card p-8 sm:p-10 text-center space-y-5">
+        <div className="w-16 h-16 rounded-3xl bg-[#C98A2E]/15 flex items-center justify-center mx-auto text-[#C98A2E]">
+          <ShieldCheck className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="font-serif text-2xl font-bold text-[#142217]">{roleLabel} sign-in required</h2>
+          <p className="text-sm text-[#142217]/60">
+            Sign in with your authorized official account to continue to the {roleLabel} dashboard.
+          </p>
+        </div>
+        <button
+          onClick={onOpenLogin}
+          className="btn-gold w-full justify-center py-3.5 text-sm font-extrabold shadow-lg"
+        >
+          <LogIn className="w-4 h-4" /> Sign in as {roleLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [role, setRole] = useState('farmer'); // 'farmer', 'officer', 'admin'
-  const [language, setLanguage] = useState('hi'); // 'hi', 'en', 'te'
+  const [language, setLanguage] = useState(() => localStorage.getItem('kisan_language') || 'en'); // 'hi', 'en', 'te'
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('kisan_dark_mode') === 'true');
   const [farmer, setFarmer] = useState(null);
-  const [staff, setStaff] = useState(null);
+  const [officer, setOfficer] = useState(null);
+  const [adminUser, setAdminUser] = useState(null);
   const [activeFarmerTab, setActiveFarmerTab] = useState('dashboard');
   const [isLoggedOut, setIsLoggedOut] = useState(false);
 
@@ -26,6 +96,7 @@ export default function App() {
   const [isNotifDrawerOpen, setIsNotifDrawerOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState('farmer_otp'); // 'farmer_otp', 'staff_login'
+  const [selectedLoginRole, setSelectedLoginRole] = useState('farmer');
 
   // Auth Form State
   const [phoneInput, setPhoneInput] = useState('9876500001');
@@ -43,32 +114,13 @@ export default function App() {
   const t = translations[language] || translations.hi;
 
   useEffect(() => {
+    document.documentElement.classList.toggle('dark-mode', darkMode);
+    localStorage.setItem('kisan_dark_mode', String(darkMode));
+  }, [darkMode]);
+
+  useEffect(() => {
     const s = io(window.location.origin, { transports: ['websocket', 'polling'] });
     setSocket(s);
-
-    const initFarmerAuth = async () => {
-      try {
-        const res = await api.login({ phone: '9876500001', password: 'password123' });
-        if (res && res.success) {
-          setAuthToken(res.data.accessToken);
-          setCurrentUser({ ...res.data.farmer, role: 'farmer' });
-          setFarmer(res.data.farmer);
-        }
-      } catch (e) {
-        console.warn('Auto farmer login fallback:', e.message);
-        setFarmer({
-          _id: '6a989238b12c298f488371df',
-          name: 'Ramesh Kumar',
-          phone: '9876500001',
-          village: 'Mohanlalganj',
-          district: 'Lucknow',
-          state: 'Uttar Pradesh',
-        });
-      }
-      loadNotifications();
-    };
-
-    initFarmerAuth();
 
     return () => {
       s.disconnect();
@@ -83,6 +135,96 @@ export default function App() {
       console.warn('Notifications load fallback:', e.message);
     }
   };
+
+  const applyRoleSession = (targetRole, sessions = {}) => {
+    const nextFarmer = sessions.farmer !== undefined ? sessions.farmer : farmer;
+    const nextOfficer = sessions.officer !== undefined ? sessions.officer : officer;
+    const nextAdmin = sessions.adminUser !== undefined ? sessions.adminUser : adminUser;
+
+    setRole(targetRole);
+    setSelectedLoginRole(targetRole);
+    setAuthMode(targetRole === 'farmer' ? 'farmer_otp' : 'staff_login');
+    if (targetRole !== 'farmer') {
+      // Use officer email for officer role, admin email for all admin roles
+      const emailKey = targetRole === 'officer' ? 'officer' : 'admin';
+      setStaffEmail(DEMO_STAFF_EMAILS[emailKey]);
+    }
+    localStorage.setItem(ACTIVE_ROLE_KEY, targetRole);
+    window.history.pushState({}, '', `/login?role=${targetRole}`);
+
+    if (targetRole === 'farmer' && nextFarmer) {
+      const token = localStorage.getItem(FARMER_TOKEN_KEY);
+      if (token) {
+        setAuthToken(token);
+        setCurrentUser({ ...nextFarmer, role: 'farmer' });
+        setIsLoggedOut(false);
+        return true;
+      }
+    }
+
+    if (targetRole === 'officer' && nextOfficer) {
+      const token = localStorage.getItem(OFFICER_TOKEN_KEY);
+      if (token) {
+        setAuthToken(token);
+        setCurrentUser({ ...nextOfficer, role: nextOfficer.role || 'centre_staff' });
+        setIsLoggedOut(false);
+        return true;
+      }
+    }
+
+    if (targetRole === 'admin' && nextAdmin) {
+      const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+      if (token) {
+        setAuthToken(token);
+        setCurrentUser({ ...nextAdmin, role: nextAdmin.role });
+        setIsLoggedOut(false);
+        return true;
+      }
+    }
+
+    setAuthToken(null);
+    setCurrentUser(null);
+    setIsLoggedOut(true);
+    setNotifications([]);
+    return false;
+  };
+
+  useEffect(() => {
+    const handleAuthExpired = () => handleLogout();
+    window.addEventListener('kisan-auth-expired', handleAuthExpired);
+    return () => window.removeEventListener('kisan-auth-expired', handleAuthExpired);
+  }, []);
+
+  useEffect(() => {
+    const storedFarmer = localStorage.getItem(FARMER_TOKEN_KEY) ? readStoredUser(FARMER_USER_KEY) : null;
+    const storedOfficer = localStorage.getItem(OFFICER_TOKEN_KEY) ? readStoredUser(OFFICER_USER_KEY) : null;
+    const storedAdmin = localStorage.getItem(ADMIN_TOKEN_KEY) ? readStoredUser(ADMIN_USER_KEY) : null;
+    if (!storedFarmer) localStorage.removeItem(FARMER_USER_KEY);
+    if (!storedOfficer) localStorage.removeItem(OFFICER_USER_KEY);
+    if (!storedAdmin) localStorage.removeItem(ADMIN_USER_KEY);
+    setFarmer(storedFarmer);
+    setOfficer(storedOfficer);
+    setAdminUser(storedAdmin);
+
+    const roleParam = new URLSearchParams(window.location.search).get('role');
+    const savedRole = localStorage.getItem(ACTIVE_ROLE_KEY);
+    const initialRole = isUiRole(roleParam) ? roleParam : (isUiRole(savedRole) ? savedRole : 'farmer');
+
+    const restored = applyRoleSession(initialRole, {
+      farmer: storedFarmer,
+      officer: storedOfficer,
+      adminUser: storedAdmin,
+    });
+
+    if (restored) {
+      loadNotifications();
+      return;
+    }
+
+    if (window.location.pathname === '/login' && isUiRole(roleParam)) {
+      setIsAuthModalOpen(true);
+    }
+  }, []);
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
@@ -109,15 +251,15 @@ export default function App() {
     e.preventDefault();
     setAuthLoading(true);
     try {
-      const res = await api.verifyOtp({ phone: phoneInput, otp: otpInput });
+      const res = await api.verifyOtp({ phone: phoneInput, otp: otpInput, role: selectedLoginRole });
       if (res.success) {
-        setAuthToken(res.data.accessToken);
-        setCurrentUser({ ...res.data.farmer, role: 'farmer' });
+        localStorage.setItem(FARMER_TOKEN_KEY, res.data.accessToken);
+        writeStoredUser(FARMER_USER_KEY, res.data.farmer);
         setFarmer(res.data.farmer);
-        setIsLoggedOut(false);
+        applyRoleSession('farmer', { farmer: res.data.farmer });
         setIsAuthModalOpen(false);
-        setRole('farmer');
         setOtpSent(false);
+        loadNotifications();
       }
     } catch (err) {
       alert(err.message || 'Invalid OTP.');
@@ -130,15 +272,23 @@ export default function App() {
     e.preventDefault();
     setAuthLoading(true);
     try {
-      const res = await api.staffLogin({ email: staffEmail, password: staffPassword });
+      const res = await api.staffLogin({ email: staffEmail, password: staffPassword, role: selectedLoginRole });
       if (res.success) {
-        setAuthToken(res.data.accessToken);
-        setCurrentUser({ ...res.data.staff, role: res.data.role });
-        setStaff(res.data.staff);
-        setIsLoggedOut(false);
+        // Map backend roles to UI roles
+        const roleMapping = {
+          'centre_staff': 'officer',
+          'admin': 'admin',
+          'district_admin': 'admin',
+          'state_admin': 'admin'
+        };
+        const uiRole = roleMapping[res.data.role] || 'admin';
+        localStorage.setItem(getStaffTokenKey(uiRole), res.data.accessToken);
+        writeStoredUser(getStaffUserKey(uiRole), res.data.staff);
+        if (uiRole === 'officer') setOfficer(res.data.staff);
+        else setAdminUser(res.data.staff);
+        applyRoleSession(uiRole, uiRole === 'officer' ? { officer: res.data.staff } : { adminUser: res.data.staff });
         setIsAuthModalOpen(false);
-        if (res.data.role === 'centre_staff') setRole('officer');
-        else setRole('admin');
+        loadNotifications();
       }
     } catch (err) {
       alert(err.message || 'Staff login failed.');
@@ -147,55 +297,41 @@ export default function App() {
     }
   };
 
-  const handleSwitchRole = async (targetRole) => {
-    setRole(targetRole);
-    if (!isLoggedOut) {
-      if (targetRole === 'officer' && !staff) {
-        try {
-          const res = await api.staffLogin({
-            email: 'officer.lucknow@kisansetu.gov.in',
-            password: 'password123',
-          });
-          if (res.success) {
-            setAuthToken(res.data.accessToken);
-            setCurrentUser({ ...res.data.staff, role: res.data.role });
-            setStaff(res.data.staff);
-          }
-        } catch (e) {
-          console.warn('Auto staff auth notice:', e.message);
-        }
-      } else if (targetRole === 'admin' && !staff) {
-        try {
-          const res = await api.staffLogin({
-            email: 'admin.lucknow@kisansetu.gov.in',
-            password: 'password123',
-          });
-          if (res.success) {
-            setAuthToken(res.data.accessToken);
-            setCurrentUser({ ...res.data.staff, role: res.data.role });
-            setStaff(res.data.staff);
-          }
-        } catch (e) {
-          console.warn('Auto admin auth notice:', e.message);
-        }
-      }
-    }
+  const handleSwitchRole = (targetRole) => {
+    const restored = applyRoleSession(targetRole);
+    if (restored) loadNotifications();
+  };
+
+  const selectProtectedRole = (targetRole) => {
+    applyRoleSession(targetRole);
+  };
+
+  const openLoginForRole = (targetRole) => {
+    applyRoleSession(targetRole);
+    setIsAuthModalOpen(true);
   };
 
   const handleLogout = () => {
     setIsLoggedOut(true);
     setAuthToken(null);
     setCurrentUser(null);
+    localStorage.removeItem(FARMER_TOKEN_KEY);
+    localStorage.removeItem(OFFICER_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem(FARMER_USER_KEY);
+    localStorage.removeItem(OFFICER_USER_KEY);
+    localStorage.removeItem(ADMIN_USER_KEY);
+    localStorage.removeItem(ACTIVE_ROLE_KEY);
     setFarmer(null);
-    setStaff(null);
-    localStorage.removeItem('kisan_auth_token');
-    localStorage.removeItem('kisan_user_data');
-    if (role === 'admin' || role === 'officer') {
-      setAuthMode('staff_login');
-    } else {
-      setAuthMode('farmer_otp');
-    }
-    setIsAuthModalOpen(true);
+    setOfficer(null);
+    setAdminUser(null);
+    setNotifications([]);
+    setRole('farmer');
+    setSelectedLoginRole('farmer');
+    setAuthMode('farmer_otp');
+    setStaffEmail(DEMO_STAFF_EMAILS.officer);
+    setIsAuthModalOpen(false);
+    window.history.pushState({}, '', '/login?role=farmer');
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -214,7 +350,6 @@ export default function App() {
         </div>
         <div className="flex items-center gap-3">
           <span className="hidden md:inline text-white/60">Toll-Free Kisan Call: 1800-180-1551</span>
-          <span className="text-[#EBB668] font-semibold">SIH Problem Statement 26032</span>
         </div>
       </div>
 
@@ -245,7 +380,7 @@ export default function App() {
             {/* Middle Role Switcher Pills */}
             <nav className="hidden md:flex items-center gap-1.5 bg-[#0D170F]/80 p-1.5 rounded-2xl border border-white/10 shadow-inner">
               <button
-                onClick={() => handleSwitchRole('farmer')}
+                onClick={() => farmer ? handleSwitchRole('farmer') : selectProtectedRole('farmer')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                   role === 'farmer'
                     ? 'bg-gradient-to-r from-[#C98A2E] to-[#A56F20] text-white shadow-md shadow-[#C98A2E]/25'
@@ -255,7 +390,7 @@ export default function App() {
                 <User className="w-4 h-4" /> {t.farmerRole}
               </button>
               <button
-                onClick={() => handleSwitchRole('officer')}
+                onClick={() => officer ? handleSwitchRole('officer') : selectProtectedRole('officer')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                   role === 'officer'
                     ? 'bg-gradient-to-r from-[#C98A2E] to-[#A56F20] text-white shadow-md shadow-[#C98A2E]/25'
@@ -265,7 +400,7 @@ export default function App() {
                 <Scale className="w-4 h-4" /> {t.officerRole}
               </button>
               <button
-                onClick={() => handleSwitchRole('admin')}
+                onClick={() => adminUser ? handleSwitchRole('admin') : selectProtectedRole('admin')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                   role === 'admin'
                     ? 'bg-gradient-to-r from-[#C98A2E] to-[#A56F20] text-white shadow-md shadow-[#C98A2E]/25'
@@ -293,7 +428,10 @@ export default function App() {
                 <Globe className="w-3.5 h-3.5 text-[#8FA584] absolute left-2.5 pointer-events-none" />
                 <select
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
+                  onChange={(e) => {
+                    setLanguage(e.target.value);
+                    localStorage.setItem('kisan_language', e.target.value);
+                  }}
                   className="bg-[#0D170F] border border-white/15 text-white text-xs rounded-xl pl-8 pr-3 py-2 outline-none cursor-pointer hover:border-[#C98A2E]/60 transition-colors font-medium"
                 >
                   <option value="hi">हिंदी (Hindi)</option>
@@ -301,6 +439,15 @@ export default function App() {
                   <option value="te">తెలుగు (Telugu)</option>
                 </select>
               </div>
+
+              <button
+                onClick={() => setDarkMode((enabled) => !enabled)}
+                className="p-2.5 rounded-xl bg-[#0D170F] hover:bg-white/10 border border-white/15 transition-colors"
+                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {darkMode ? <Sun className="w-4 h-4 text-[#EBB668]" /> : <Moon className="w-4 h-4 text-white/80" />}
+              </button>
 
               {/* Notifications Bell */}
               <button
@@ -318,7 +465,11 @@ export default function App() {
 
               {/* User Account Badge or Sign In Button */}
               {(() => {
-                const isAuthenticated = !isLoggedOut && Boolean((role === 'farmer' && farmer) || (role !== 'farmer' && staff));
+                const isAuthenticated = !isLoggedOut && Boolean(
+                  (role === 'farmer' && farmer)
+                  || (role === 'officer' && officer)
+                  || (role === 'admin' && adminUser)
+                );
 
                 if (!isAuthenticated) {
                   return (
@@ -338,15 +489,15 @@ export default function App() {
                 const activeUserDisplay = (() => {
                   if (role === 'admin') {
                     return {
-                      name: staff?.name || 'Dr. Sunita Deshmukh',
+                      name: adminUser?.name || 'Dr. Sunita Deshmukh',
                       sub: 'District Collector / Admin (Lucknow)',
                       avatarColor: 'from-[#BA3D2C] to-[#8C291B]',
                     };
                   }
                   if (role === 'officer') {
                     return {
-                      name: staff?.name || 'Virender Singh',
-                      sub: 'Mandi Officer (Lucknow APMC)',
+                      name: officer?.name || 'Virender Singh',
+                      sub: `Mandi Officer (${officer?.district || 'Lucknow'} APMC)`,
                       avatarColor: 'from-[#C98A2E] to-[#9E6819]',
                     };
                   }
@@ -372,10 +523,12 @@ export default function App() {
                     </div>
                     <button
                       onClick={handleLogout}
-                      className="p-1.5 rounded-lg hover:bg-[#BA3D2C]/20 text-white/70 hover:text-[#BA3D2C] transition-colors"
-                      title="Logout of session"
+                      className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-[#BA3D2C]/20 text-white/80 hover:text-[#BA3D2C] transition-colors text-[10px] font-bold"
+                      title="Sign out"
+                      aria-label="Sign out"
                     >
                       <LogOut className="w-4 h-4" />
+                      <span className="hidden sm:inline">Sign out</span>
                     </button>
                   </div>
                 );
@@ -387,7 +540,7 @@ export default function App() {
         {/* Mobile Sub-Nav Role Switcher */}
         <div className="md:hidden flex border-t border-white/10 bg-[#0D170F] divide-x divide-white/10 text-xs">
           <button
-            onClick={() => handleSwitchRole('farmer')}
+            onClick={() => farmer ? handleSwitchRole('farmer') : selectProtectedRole('farmer')}
             className={`flex-1 py-3 font-bold text-center flex items-center justify-center gap-1.5 ${
               role === 'farmer' ? 'text-[#EBB668] bg-[#142217]' : 'text-white/60'
             }`}
@@ -395,7 +548,7 @@ export default function App() {
             <User className="w-3.5 h-3.5" /> {t.farmerRole}
           </button>
           <button
-            onClick={() => handleSwitchRole('officer')}
+            onClick={() => officer ? handleSwitchRole('officer') : selectProtectedRole('officer')}
             className={`flex-1 py-3 font-bold text-center flex items-center justify-center gap-1.5 ${
               role === 'officer' ? 'text-[#EBB668] bg-[#142217]' : 'text-white/60'
             }`}
@@ -403,7 +556,7 @@ export default function App() {
             <Scale className="w-3.5 h-3.5" /> {t.officerRole}
           </button>
           <button
-            onClick={() => handleSwitchRole('admin')}
+            onClick={() => adminUser ? handleSwitchRole('admin') : selectProtectedRole('admin')}
             className={`flex-1 py-3 font-bold text-center flex items-center justify-center gap-1.5 ${
               role === 'admin' ? 'text-[#EBB668] bg-[#142217]' : 'text-white/60'
             }`}
@@ -424,19 +577,24 @@ export default function App() {
             language={language}
             socket={socket}
             onOpenVoiceModal={() => setIsVoiceModalOpen(true)}
+            onOpenAuthModal={() => {
+              setAuthMode('farmer_otp');
+              setIsAuthModalOpen(true);
+            }}
           />
         )}
 
-        {role === 'officer' && (
-          <OfficerDashboard
-            staff={staff}
-            socket={socket}
-          />
-        )}
+        {role === 'officer' && (officer ? (
+          <OfficerDashboard staff={officer} socket={socket} />
+        ) : (
+          <LoginRequired role="officer" onOpenLogin={() => openLoginForRole('officer')} />
+        ))}
 
-        {role === 'admin' && (
+        {role === 'admin' && (adminUser ? (
           <AdminDashboard socket={socket} />
-        )}
+        ) : (
+          <LoginRequired role="admin" onOpenLogin={() => openLoginForRole('admin')} />
+        ))}
       </main>
 
       {/* Modern Luxury Footer */}
@@ -448,7 +606,7 @@ export default function App() {
                 <Wheat className="w-5 h-5 text-[#C98A2E]" />
               </div>
               <div>
-                <span className="text-white font-bold text-sm block">Kisan Setu · SIH 26032</span>
+                <span className="text-white font-bold text-sm block">Kisan Setu · Uttar Pradesh Mandi Network</span>
                 <span className="text-[11px] text-white/50">Intelligent Capacity-Aware Agricultural Procurement Platform</span>
               </div>
             </div>
@@ -462,7 +620,7 @@ export default function App() {
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between text-[11px] text-white/40 gap-2">
             <div>
-              Built for Smart India Hackathon 2026 · Powered by Node.js, Express, MongoDB, Socket.IO, Vite, Tailwind CSS & AI Engine
+              Secure digital procurement coordination for farmers, mandi officers, and administrators.
             </div>
             <div>
               Version 2.6 Pro · Branch: <span className="font-mono text-white/60">aryan</span>
@@ -477,7 +635,7 @@ export default function App() {
         onClose={() => setIsVoiceModalOpen(false)}
         language={language}
         onNavigateTab={(tab) => {
-          setRole('farmer');
+          applyRoleSession('farmer');
           setActiveFarmerTab(tab);
           setIsVoiceModalOpen(false);
         }}
@@ -511,15 +669,42 @@ export default function App() {
                 </button>
               </div>
               <h3 className="font-serif text-xl font-bold">
-                {authMode === 'farmer_otp' ? 'Farmer OTP Authentication' : 'Mandi Officer & Admin Sign In'}
+                {selectedLoginRole === 'farmer' ? 'Farmer Login' : selectedLoginRole === 'officer' ? 'Procurement Officer Login' : 'Administrator Login'}
               </h3>
               <p className="text-xs text-white/70 mt-1">
-                {authMode === 'farmer_otp' ? 'Login via 10-digit mobile number with direct SMS OTP.' : 'Restricted to authorized procurement officials.'}
+                {selectedLoginRole === 'farmer' ? 'Login with your registered mobile number and OTP.' : 'Restricted to authorized procurement officials.'}
               </p>
             </div>
 
             {/* Body */}
             <div className="p-6 space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm font-bold text-[#142217]">Select your role:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'farmer', label: '👨‍🌾 Farmer' },
+                    { id: 'officer', label: '👮 Procurement Officer' },
+                    { id: 'admin', label: '🛡 Administrator' },
+                  ].map((loginRole) => {
+                    const selected = loginRole.id === selectedLoginRole;
+                    return (
+                      <button
+                        key={loginRole.id}
+                        type="button"
+                        onClick={() => openLoginForRole(loginRole.id)}
+                        className={`p-2 rounded-xl border text-[11px] font-bold leading-tight transition-colors ${
+                          selected
+                            ? 'bg-[#142217] text-white border-[#142217]'
+                            : 'bg-[#F7F5EE] text-[#142217]/70 border-[#DDD8CB] hover:border-[#C98A2E]'
+                        }`}
+                      >
+                        {loginRole.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {authMode === 'farmer_otp' ? (
                 <div className="space-y-4 text-xs">
                   {!otpSent ? (
@@ -583,10 +768,10 @@ export default function App() {
                   <div className="pt-3 border-t border-[#DDD8CB] text-center">
                     <button
                       type="button"
-                      onClick={() => setAuthMode('staff_login')}
+                      onClick={() => openLoginForRole('officer')}
                       className="text-[#C98A2E] font-bold hover:underline"
                     >
-                      Are you a Mandi Officer or Admin? Click here
+                      Are you a Procurement Officer or Administrator? Sign in here
                     </button>
                   </div>
                 </div>
@@ -617,13 +802,15 @@ export default function App() {
                     disabled={authLoading}
                     className="btn-primary w-full justify-center py-3 text-sm font-bold shadow-lg"
                   >
-                    {authLoading ? 'Authenticating...' : 'Sign In as Officer / Admin'}
+                    {authLoading
+                      ? 'Authenticating...'
+                      : `Sign In as ${selectedLoginRole === 'admin' ? 'Administrator' : 'Procurement Officer'}`}
                   </button>
 
                   <div className="pt-3 border-t border-[#DDD8CB] text-center">
                     <button
                       type="button"
-                      onClick={() => setAuthMode('farmer_otp')}
+                      onClick={() => openLoginForRole('farmer')}
                       className="text-[#C98A2E] font-bold hover:underline"
                     >
                       Are you a farmer? Login via Mobile OTP
@@ -632,85 +819,6 @@ export default function App() {
                 </form>
               )}
 
-              {/* 1-Click Quick Demo Access */}
-              <div className="pt-3 border-t border-[#DDD8CB] space-y-2">
-                <span className="text-[10px] text-[#142217]/60 font-extrabold uppercase tracking-wider block text-center">
-                  Instant Demo 1-Click Sign In
-                </span>
-                <div className="grid grid-cols-1 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setAuthLoading(true);
-                      try {
-                        const res = await api.login({ phone: '9876500001', password: 'password123' });
-                        if (res.success) {
-                          setAuthToken(res.data.accessToken);
-                          setCurrentUser({ ...res.data.farmer, role: 'farmer' });
-                          setFarmer(res.data.farmer);
-                          setIsLoggedOut(false);
-                          setIsAuthModalOpen(false);
-                          setRole('farmer');
-                        }
-                      } finally {
-                        setAuthLoading(false);
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold text-xs flex items-center justify-between transition-colors"
-                  >
-                    <span>🚜 Farmer (Ramesh Kumar - Lucknow)</span>
-                    <span className="text-[10px] text-emerald-700">1-Click Sign In ➔</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setAuthLoading(true);
-                      try {
-                        const res = await api.staffLogin({ email: 'officer.lucknow@kisansetu.gov.in', password: 'password123' });
-                        if (res.success) {
-                          setAuthToken(res.data.accessToken);
-                          setCurrentUser({ ...res.data.staff, role: res.data.role });
-                          setStaff(res.data.staff);
-                          setIsLoggedOut(false);
-                          setIsAuthModalOpen(false);
-                          setRole('officer');
-                        }
-                      } finally {
-                        setAuthLoading(false);
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold text-xs flex items-center justify-between transition-colors"
-                  >
-                    <span>⚖️ Mandi Officer (Virender Singh - Lucknow APMC)</span>
-                    <span className="text-[10px] text-amber-700">1-Click Sign In ➔</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setAuthLoading(true);
-                      try {
-                        const res = await api.staffLogin({ email: 'admin.lucknow@kisansetu.gov.in', password: 'password123' });
-                        if (res.success) {
-                          setAuthToken(res.data.accessToken);
-                          setCurrentUser({ ...res.data.staff, role: res.data.role });
-                          setStaff(res.data.staff);
-                          setIsLoggedOut(false);
-                          setIsAuthModalOpen(false);
-                          setRole('admin');
-                        }
-                      } finally {
-                        setAuthLoading(false);
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-900 font-bold text-xs flex items-center justify-between transition-colors"
-                  >
-                    <span>🏛️ State / District Admin (Dr. Sunita Deshmukh - UP Mandi Parishad)</span>
-                    <span className="text-[10px] text-red-700">1-Click Sign In ➔</span>
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>

@@ -10,7 +10,7 @@ const QRCode = require('qrcode');
 
 async function createBooking({ farmerId, centreId, slotId, cropType, estimatedQuantity }) {
   // Realistic Validation 1: Require farmer to have registered crop produce
-  const registeredCrops = await Crop.find({ farmerId, status: { $ne: 'rejected' } });
+  const registeredCrops = await Crop.find({ farmerId });
   if (!registeredCrops || registeredCrops.length === 0) {
     const err = new Error('Produce registration required: You must first register your crop and landholding before booking a procurement slot.');
     err.status = 400;

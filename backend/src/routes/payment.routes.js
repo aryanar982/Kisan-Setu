@@ -6,8 +6,8 @@ const paymentController = require('../controllers/payment.controller');
 
 const router = express.Router();
 
-router.get('/my', requireAuth, asyncHandler(paymentController.getMyPayments));
+router.get('/my', requireAuth, rbac(['farmer']), asyncHandler(paymentController.getMyPayments));
 router.get('/', requireAuth, rbac(['admin', 'state_admin', 'district_admin', 'centre_staff']), asyncHandler(paymentController.listAllPayments));
-router.patch('/:id/status', requireAuth, rbac(['admin', 'state_admin', 'district_admin', 'centre_staff']), asyncHandler(paymentController.updateStatus));
+router.patch('/:id/status', requireAuth, rbac(['admin', 'state_admin', 'district_admin']), asyncHandler(paymentController.updateStatus));
 
 module.exports = router;

@@ -17,6 +17,7 @@ export default function FarmerPortal({
   language,
   socket,
   onOpenVoiceModal,
+  onOpenAuthModal,
 }) {
   const t = translations[language] || translations.hi;
 
@@ -45,11 +46,14 @@ export default function FarmerPortal({
   const [newCropQuantity, setNewCropQuantity] = useState(40);
   const [newCropLand, setNewCropLand] = useState(3.5);
 
-  // Active Token calculation
-  const latestBooking = bookings[0] || null;
+  // Only bookings still in progress should appear as the active token.
+  const activeBookingStatuses = ['booked', 'checked_in', 'serving'];
+  const activeBooking = bookings.find((booking) => activeBookingStatuses.includes(booking.status)) || null;
+  const latestBooking = activeBooking;
   const activeToken = latestBooking && latestBooking.token ? latestBooking.token : null;
 
   useEffect(() => {
+    if (!farmer) return;
     loadCentres();
     loadCrops();
     loadMspRates();
@@ -58,6 +62,12 @@ export default function FarmerPortal({
       loadBookings();
       loadPayments();
     }
+  }, [farmer]);
+
+  useEffect(() => {
+    if (!farmer) return undefined;
+    const interval = setInterval(loadPayments, 12000);
+    return () => clearInterval(interval);
   }, [farmer]);
 
   // Socket listener for live queue updates and token calls
@@ -90,6 +100,7 @@ export default function FarmerPortal({
   }, [socket, farmer, activeToken]);
 
   const loadCentres = async () => {
+    if (!farmer) return;
     try {
       const res = await api.getCentres('?userLat=29.5334&userLng=75.0298');
       if (res.success) setCentres(res.data);
@@ -119,8 +130,11 @@ export default function FarmerPortal({
       const res = await api.getMyBookings();
       if (res && res.success) {
         setBookings(res.data || []);
-        if (res.data && res.data.length > 0 && res.data[0].token && res.data[0].token.centreId) {
-          loadLiveQueue(res.data[0].token.centreId._id || res.data[0].token.centreId);
+        const activeBooking = (res.data || []).find((booking) => activeBookingStatuses.includes(booking.status));
+        if (activeBooking?.token?.centreId) {
+          loadLiveQueue(activeBooking.token.centreId._id || activeBooking.token.centreId);
+        } else {
+          setActiveQueue(null);
         }
       }
     } catch (e) {
@@ -138,6 +152,7 @@ export default function FarmerPortal({
   };
 
   const loadMspRates = async () => {
+    if (!farmer) return;
     try {
       const res = await api.getMspRates();
       if (res && res.success) setMspRates(res.data || {});
@@ -147,6 +162,7 @@ export default function FarmerPortal({
   };
 
   const loadAiRecommendations = async () => {
+    if (!farmer) return;
     try {
       const res = await api.getAiRecommendations('?userLat=29.5334&userLng=75.0298');
       if (res && res.success) setAiRecs(res.data || null);
@@ -166,7 +182,7 @@ export default function FarmerPortal({
   };
 
   const handleSelectCentreForBooking = async (centre) => {
-    if (!centre) return;
+    if (!centre || !farmer) return;
     setSelectedCentre(centre);
     setActiveTab('bookSlot');
     try {
@@ -206,11 +222,10 @@ export default function FarmerPortal({
     setIsBookingLoading(true);
     try {
       const res = await api.createBooking({
-        farmerId: farmer._id,
         centreId: selectedCentre._id,
         slotId: selectedSlotId,
         cropType: selectedCrop,
-        estimatedQuantity: cropQuantity,
+        estimatedQuantity: Number(cropQuantity),
       });
 
       if (res.success) {
@@ -258,6 +273,34 @@ export default function FarmerPortal({
   };
 
   const estimatedMspTotal = (cropQuantity || 0) * (mspRates[selectedCrop] || 2425);
+  const completedPayments = payments.filter((payment) => ['completed', 'approved'].includes(payment.status));
+  const initiatedPayments = payments.filter((payment) => ['initiated', 'processing', 'pending'].includes(payment.status));
+  const completedAmount = completedPayments.reduce((total, payment) => total + Number(payment.amount || 0), 0);
+  const initiatedAmount = initiatedPayments.reduce((total, payment) => total + Number(payment.amount || 0), 0);
+
+  if (!farmer) {
+    return (
+      <div className="max-w-xl mx-auto py-12 sm:py-20">
+        <div className="kisan-card p-8 sm:p-10 text-center space-y-5">
+          <div className="w-16 h-16 rounded-3xl bg-[#C98A2E]/15 flex items-center justify-center mx-auto text-[#C98A2E]">
+            <ShieldCheck className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="font-serif text-2xl font-bold text-[#142217]">Farmer sign-in required</h2>
+            <p className="text-sm text-[#142217]/60">
+              Sign in with your mobile number to view MSP rates, available seats, registered produce, and book a mandi slot.
+            </p>
+          </div>
+          <button
+            onClick={onOpenAuthModal}
+            className="btn-gold w-full justify-center py-3.5 text-sm font-extrabold shadow-lg"
+          >
+            <User className="w-4 h-4" /> Sign in as Farmer
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in pb-16">
@@ -304,7 +347,7 @@ export default function FarmerPortal({
       )}
 
       {/* Segmented Navigation Tabs */}
-      <div className="flex overflow-x-auto gap-2 p-1.5 bg-[#EDEAE1]/80 backdrop-blur-md rounded-2xl border border-[#DDD8CB] no-scrollbar shadow-inner">
+      <div className="farmer-tabs-nav flex overflow-x-auto gap-2 p-1.5 bg-[#EDEAE1]/80 backdrop-blur-md rounded-2xl border border-[#DDD8CB] no-scrollbar shadow-inner">
         {[
           { id: 'dashboard', label: t.tabs.dashboard, icon: Wheat },
           { id: 'centres', label: t.tabs.centres, icon: MapPin },
@@ -455,7 +498,11 @@ export default function FarmerPortal({
                 <Wheat className="w-5 h-5 text-[#C98A2E]" />
               </div>
               <p className="font-serif text-3xl font-extrabold text-[#142217]">{crops.length}</p>
-              <p className="text-xs text-[#6B7F61] font-medium">Wheat, Mustard & Cotton ready for harvest</p>
+              <p className="text-xs text-[#6B7F61] font-medium">
+                {crops.length > 0
+                  ? `${crops.map((crop) => crop.cropType).join(', ')} ready for harvest`
+                  : 'No produce registered yet'}
+              </p>
             </div>
 
             <div className="kisan-card p-6 space-y-2">
@@ -475,7 +522,7 @@ export default function FarmerPortal({
                 <IndianRupee className="w-5 h-5 text-[#C98A2E]" />
               </div>
               <p className="font-serif text-3xl font-extrabold text-[#1B7A38]">
-                ₹{payments.reduce((acc, p) => acc + (p.status === 'completed' ? p.amount : 0), 0).toLocaleString('en-IN') || '95,060'}
+                ₹{completedAmount.toLocaleString('en-IN')}
               </p>
               <p className="text-xs text-[#142217]/60">Direct PFMS Transfer to Bank Account</p>
             </div>
@@ -801,12 +848,6 @@ export default function FarmerPortal({
               <h3 className="font-serif text-2xl font-bold text-[#142217]">Live Mandi Queue & Token Tracker</h3>
               <p className="text-xs text-[#142217]/60">Sub-second updates synchronized directly with the mandi desk.</p>
             </div>
-            <button
-              onClick={() => activeToken && loadLiveQueue(activeToken.centreId._id || activeToken.centreId)}
-              className="btn-outline text-xs py-2 px-3.5"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Refresh Queue
-            </button>
           </div>
 
           {/* Large Mandi Billboard */}
@@ -824,17 +865,17 @@ export default function FarmerPortal({
             <div className="flex items-center justify-between py-2">
               <div>
                 <h2 className="font-serif text-4xl sm:text-5xl font-black text-white tracking-wider text-shadow">
-                  {activeQueue && activeQueue.currentlyServing ? activeQueue.currentlyServing.tokenNumber : 'SIR-20260902-002'}
+                  {activeQueue?.currentlyServing?.tokenNumber || 'No farmer currently being served'}
                 </h2>
                 <p className="text-xs text-white/80 mt-1.5 font-medium">
-                  Farmer: {activeQueue && activeQueue.currentlyServing?.bookingId?.farmerId?.name ? activeQueue.currentlyServing.bookingId.farmerId.name : 'Suresh Patel (Ding)'}
+                  Farmer: {activeQueue?.currentlyServing?.bookingId?.farmerId?.name || 'No active token'}
                 </p>
               </div>
 
               <div className="text-right">
                 <span className="text-xs text-white/60">Waiting in Line</span>
                 <p className="font-serif text-3xl sm:text-4xl font-extrabold text-[#EBB668]">
-                  {activeQueue ? activeQueue.waitingCount : 2}
+                  {activeQueue?.waitingCount || 0}
                 </p>
               </div>
             </div>
@@ -1076,6 +1117,21 @@ export default function FarmerPortal({
             <p className="text-xs text-[#142217]/60">Government PFMS treasury vouchers directly credited to your Aadhaar-linked bank account.</p>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="kisan-card p-4 border-l-4 border-l-[#1B7A38]">
+              <span className="text-[10px] uppercase font-extrabold text-[#6B7F61]">Completed</span>
+              <p className="font-serif text-xl font-extrabold text-[#1B7A38]">₹{completedAmount.toLocaleString('en-IN')}</p>
+            </div>
+            <div className="kisan-card p-4 border-l-4 border-l-[#C98A2E]">
+              <span className="text-[10px] uppercase font-extrabold text-[#6B7F61]">Pending / Processing</span>
+              <p className="font-serif text-xl font-extrabold text-[#C98A2E]">₹{initiatedAmount.toLocaleString('en-IN')}</p>
+            </div>
+            <div className="kisan-card p-4 border-l-4 border-l-[#142217]">
+              <span className="text-[10px] uppercase font-extrabold text-[#6B7F61]">Total</span>
+              <p className="font-serif text-xl font-extrabold text-[#142217]">₹{(completedAmount + initiatedAmount).toLocaleString('en-IN')}</p>
+            </div>
+          </div>
+
           {payments.length === 0 ? (
             <div className="kisan-card p-10 text-center text-xs text-[#142217]/50">No payment records found.</div>
           ) : (
@@ -1087,8 +1143,10 @@ export default function FarmerPortal({
                     <h4 className="font-serif text-xl font-extrabold text-[#142217] font-mono">{p.transactionId}</h4>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs text-[#142217]/60 font-semibold uppercase">Amount Paid</span>
-                    <p className="font-serif text-2xl font-extrabold text-[#1B7A38]">
+                    <span className="text-xs text-[#142217]/60 font-semibold uppercase">
+                      {p.status === 'completed' ? 'Amount Paid' : `Amount ${p.status === 'initiated' ? 'Initiated' : p.status}`}
+                    </span>
+                    <p className={`font-serif text-2xl font-extrabold ${p.status === 'completed' ? 'text-[#1B7A38]' : 'text-[#C98A2E]'}`}>
                       ₹{p.amount.toLocaleString('en-IN')}
                     </p>
                   </div>

@@ -2,11 +2,13 @@ const bookingService = require('../services/booking.service');
 const { ok } = require('../utils/apiResponse');
 
 async function create(req, res) {
-  const { centreId, slotId } = req.body;
+  const { centreId, slotId, cropType, estimatedQuantity } = req.body;
   const result = await bookingService.createBooking({
     farmerId: req.user.id,
     centreId,
     slotId,
+    cropType,
+    estimatedQuantity,
   });
   return ok(res, result, 'Slot booked — your token has been issued', 201);
 }

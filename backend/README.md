@@ -23,6 +23,15 @@ cp .env.example .env   # fill in a real MONGO_URI and two JWT secrets
 npm run dev
 ```
 
+## Seeded demo accounts
+
+Run `npm run seed` to create 10 farmers, 2 procurement officers, and 1 admin.
+All seeded accounts use the password `password123`.
+
+- Farmers: phone numbers `9876500001` through `9876500010`
+- Officers: `officer.lucknow@kisansetu.gov.in`, `officer.kanpur@kisansetu.gov.in`
+- Admin: `admin.lucknow@kisansetu.gov.in`
+
 Needs a MongoDB **replica set** (not a bare standalone) because
 `booking.service.js` uses a multi-document transaction — a free MongoDB
 Atlas cluster is a replica set by default, so this works out of the box

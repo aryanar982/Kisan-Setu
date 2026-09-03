@@ -47,7 +47,7 @@ async function sendOTP({ phone }) {
   };
 }
 
-async function verifyOTP({ phone, otp, name, village, district, state, preferredLanguage }) {
+async function verifyOTP({ phone, otp, name, village, district, state, preferredLanguage, role }) {
   if (!phone || !otp) {
     const err = new Error('Phone and OTP are required');
     err.status = 400;
@@ -69,6 +69,12 @@ async function verifyOTP({ phone, otp, name, village, district, state, preferred
   if (!isValid) {
     const err = new Error('Invalid or expired OTP');
     err.status = 400;
+    throw err;
+  }
+
+  if (role !== 'farmer') {
+    const err = new Error('This account is registered as a Farmer.');
+    err.status = 403;
     throw err;
   }
 
@@ -109,7 +115,7 @@ async function registerFarmer({ name, phone, password, village, district, state,
   return { farmer, ...tokens };
 }
 
-async function loginFarmer({ phone, password }) {
+async function loginFarmer({ phone, password, role }) {
   const farmer = await Farmer.findOne({ phone });
   if (!farmer) {
     const err = new Error('Invalid phone number or password');
@@ -117,20 +123,30 @@ async function loginFarmer({ phone, password }) {
     throw err;
   }
 
-  if (farmer.passwordHash) {
-    const match = await bcrypt.compare(password, farmer.passwordHash);
-    if (!match) {
-      const err = new Error('Invalid phone number or password');
-      err.status = 401;
-      throw err;
-    }
+  if (!farmer.passwordHash) {
+    const err = new Error('Invalid phone number or password');
+    err.status = 401;
+    throw err;
+  }
+
+  const match = await bcrypt.compare(password, farmer.passwordHash);
+  if (!match) {
+    const err = new Error('Invalid phone number or password');
+    err.status = 401;
+    throw err;
+  }
+
+  if (role !== 'farmer') {
+    const err = new Error('This account is registered as a Farmer.');
+    err.status = 403;
+    throw err;
   }
 
   const tokens = signTokens(farmer, 'farmer');
   return { farmer, ...tokens };
 }
 
-async function loginStaff({ email, password }) {
+async function loginStaff({ email, password, role }) {
   const admin = await Admin.findOne({ email: email.toLowerCase() }).populate('centreId');
   if (!admin) {
     const err = new Error('Invalid credentials');
@@ -142,6 +158,31 @@ async function loginStaff({ email, password }) {
   if (!match) {
     const err = new Error('Invalid credentials');
     err.status = 401;
+    throw err;
+  }
+
+  // Map role from request to actual database role
+  const roleMapping = {
+    'officer': 'centre_staff',
+    'admin': 'admin',
+    'district_admin': 'district_admin',
+    'state_admin': 'state_admin'
+  };
+
+  const expectedRole = roleMapping[role] || role;
+  const isAdministratorLogin = role === 'admin'
+    && ['admin', 'district_admin', 'state_admin'].includes(admin.role);
+
+  if (admin.role !== expectedRole && !isAdministratorLogin) {
+    const roleLabels = {
+      'centre_staff': 'Procurement Officer',
+      'admin': 'Administrator',
+      'district_admin': 'District Administrator',
+      'state_admin': 'State Administrator'
+    };
+    const accountLabel = roleLabels[admin.role] || admin.role;
+    const err = new Error(`This account is registered as a ${accountLabel}.`);
+    err.status = 403;
     throw err;
   }
 

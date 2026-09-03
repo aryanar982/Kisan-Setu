@@ -5,7 +5,7 @@ import {
   ShieldCheck, ArrowRight, Gauge, Cpu, CheckCircle, PlusCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { api, getAuthToken, setAuthToken, setCurrentUser } from '../api';
+import { api } from '../api';
 
 export default function OfficerDashboard({ staff, socket }) {
   const [centres, setCentres] = useState([]);
@@ -27,29 +27,10 @@ export default function OfficerDashboard({ staff, socket }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [procurementSuccess, setProcurementSuccess] = useState(null);
 
-  // Ensure staff is authenticated for officer APIs
   useEffect(() => {
-    ensureStaffAuth();
+    if (!staff) return;
     loadAllCentres();
   }, [staff]);
-
-  const ensureStaffAuth = async () => {
-    const token = getAuthToken();
-    if (!token || !staff) {
-      try {
-        const res = await api.staffLogin({
-          email: 'officer.sirsa@kisansetu.gov.in',
-          password: 'password123',
-        });
-        if (res.success) {
-          setAuthToken(res.data.accessToken);
-          setCurrentUser({ ...res.data.staff, role: res.data.role });
-        }
-      } catch (e) {
-        console.warn('Demo staff auto-login notice:', e.message);
-      }
-    }
-  };
 
   const loadAllCentres = async () => {
     try {

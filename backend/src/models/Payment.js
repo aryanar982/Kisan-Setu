@@ -9,7 +9,7 @@ const paymentSchema = new mongoose.Schema(
     amount: { type: Number, required: true },
     status: {
       type: String,
-      enum: ['initiated', 'processing', 'completed', 'failed'],
+      enum: ['initiated', 'approved', 'processing', 'completed', 'failed'],
       default: 'initiated',
     },
     mode: { type: String, default: 'DBT' },

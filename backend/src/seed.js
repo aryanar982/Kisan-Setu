@@ -194,16 +194,6 @@ async function seedDatabase() {
       state: 'Uttar Pradesh',
     },
     {
-      name: 'Kuldeep Bishnoi (Mandi Officer)',
-      email: 'officer.prayagraj@kisansetu.gov.in',
-      phone: '9876543214',
-      passwordHash,
-      role: 'centre_staff',
-      centreId: centres[2]._id,
-      district: 'Prayagraj',
-      state: 'Uttar Pradesh',
-    },
-    {
       name: 'Dr. Sunita Deshmukh (District Collector / Admin)',
       email: 'admin.lucknow@kisansetu.gov.in',
       phone: '9876543212',
@@ -212,20 +202,11 @@ async function seedDatabase() {
       district: 'Lucknow',
       state: 'Uttar Pradesh',
     },
-    {
-      name: 'Director, UP Mandi Parishad (UPMRP)',
-      email: 'admin.up@kisansetu.gov.in',
-      phone: '9876543213',
-      passwordHash,
-      role: 'state_admin',
-      district: 'Lucknow',
-      state: 'Uttar Pradesh',
-    },
   ]);
-  console.log(`✓ Seeded ${staff.length} UP Mandi Parishad Officers and Admins.`);
+  console.log(`✓ Seeded ${staff.length} procurement officers/admins.`);
 
   // ==========================================
-  // 3. SEED 35 REALISTIC FARMERS ACROSS UP
+  // 3. SEED 10 REALISTIC FARMERS ACROSS UP
   // ==========================================
   const farmerNames = [
     { name: 'Ramesh Kumar', village: 'Mohanlalganj', district: 'Lucknow', crop: 'Wheat' },
@@ -238,31 +219,6 @@ async function seedDatabase() {
     { name: 'Jagdish Chand', village: 'Phaphamau', district: 'Prayagraj', crop: 'Cotton' },
     { name: 'Pooja Rani', village: 'Naini', district: 'Prayagraj', crop: 'Wheat' },
     { name: 'Satnam Singh', village: 'Soraon', district: 'Prayagraj', crop: 'Mustard' },
-    { name: 'Devender Kumar', village: 'Aonla', district: 'Bareilly', crop: 'Wheat' },
-    { name: 'Kavita Sharma', village: 'Faridpur', district: 'Bareilly', crop: 'Mustard' },
-    { name: 'Rajendra Prasad', village: 'Baheri', district: 'Bareilly', crop: 'Bajra' },
-    { name: 'Sunil Bishnoi', village: 'Nawabganj', district: 'Bareilly', crop: 'Wheat' },
-    { name: 'Manjeet Kaur', village: 'Sahjanwa', district: 'Gorakhpur', crop: 'Paddy' },
-    { name: 'Surinder Pal', village: 'Pipraich', district: 'Gorakhpur', crop: 'Wheat' },
-    { name: 'Vikas Hooda', village: 'Campierganj', district: 'Gorakhpur', crop: 'Mustard' },
-    { name: 'Pawan Malik', village: 'Bansgaon', district: 'Gorakhpur', crop: 'Wheat' },
-    { name: 'Rekha Devi', village: 'Rohania', district: 'Varanasi', crop: 'Paddy' },
-    { name: 'Mukesh Saini', village: 'Pindra', district: 'Varanasi', crop: 'Wheat' },
-    { name: 'Jaswinder Singh', village: 'Sewapuri', district: 'Varanasi', crop: 'Wheat' },
-    { name: 'Dharmendra Singh', village: 'Fatehabad UP', district: 'Agra', crop: 'Paddy' },
-    { name: 'Geeta Devi', village: 'Kiraoli', district: 'Agra', crop: 'Wheat' },
-    { name: 'Ashok Kumar', village: 'Etmadpur', district: 'Agra', crop: 'Mustard' },
-    { name: 'Naresh Chahal', village: 'Sardhana', district: 'Meerut', crop: 'Wheat' },
-    { name: 'Bhim Singh', village: 'Mawana', district: 'Meerut', crop: 'Gram' },
-    { name: 'Santosh Devi', village: 'Hastinapur', district: 'Meerut', crop: 'Wheat' },
-    { name: 'Rakesh Sharma', village: 'Babina', district: 'Jhansi', crop: 'Wheat' },
-    { name: 'Deepak Verma', village: 'Mauranipur', district: 'Jhansi', crop: 'Mustard' },
-    { name: 'Amarjeet Singh', village: 'Bhikapur', district: 'Ayodhya', crop: 'Wheat' },
-    { name: 'Suman Lata', village: 'Sohawal', district: 'Ayodhya', crop: 'Paddy' },
-    { name: 'Om Prakash', village: 'Rudauli', district: 'Ayodhya', crop: 'Wheat' },
-    { name: 'Tarun Dahiya', village: 'Milkipur', district: 'Ayodhya', crop: 'Wheat' },
-    { name: 'Anand Rathi', village: 'Kalyanpur', district: 'Kanpur', crop: 'Wheat' },
-    { name: 'Praveen Punia', village: 'Chinhat', district: 'Lucknow', crop: 'Mustard' },
   ];
 
   const banks = [
@@ -499,7 +455,7 @@ async function seedDatabase() {
         pricePerUnit,
         totalAmount,
         remarks: 'Produce verified & grade certified by mandi staff.',
-        recordedBy: staff[i % 3]._id,
+        recordedBy: staff[i % staff.length]._id,
         createdAt: new Date(Date.now() - (100 - i) * 45 * 60 * 1000),
       });
 

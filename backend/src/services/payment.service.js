@@ -1,4 +1,5 @@
 const Payment = require('../models/Payment');
+const AuditLog = require('../models/AuditLog');
 const { createNotification } = require('./notification.service');
 
 async function getFarmerPayments(farmerId) {
@@ -16,8 +17,24 @@ async function updatePaymentStatus(paymentId, status, details = {}) {
     throw err;
   }
 
+  const allowedTransitions = {
+    initiated: ['approved', 'failed'],
+    approved: ['completed', 'failed'], // Admin approval directly marks as completed
+    processing: ['completed', 'failed'],
+    completed: [],
+    failed: [],
+  };
+  if (!Object.prototype.hasOwnProperty.call(allowedTransitions, status)
+    || !allowedTransitions[payment.status].includes(status)) {
+    const err = new Error(`Invalid payment status transition: ${payment.status} to ${status}`);
+    err.status = 400;
+    throw err;
+  }
+
+  const previousStatus = payment.status;
+
   payment.status = status;
-  if (status === 'completed') {
+  if (status === 'completed' || status === 'approved') {
     payment.disbursedAt = new Date();
   }
   if (details.failureReason) {
@@ -25,7 +42,18 @@ async function updatePaymentStatus(paymentId, status, details = {}) {
   }
   await payment.save();
 
-  if (status === 'completed') {
+  if (details.actorId) {
+    await AuditLog.create({
+      actorId: details.actorId,
+      actorRole: details.actorRole || 'admin',
+      action: status === 'approved' ? 'DBT Approved' : `Payment ${status}`,
+      targetResource: 'Payment',
+      resourceId: payment._id,
+      changes: { previousStatus, newStatus: status, amount: payment.amount, reference: payment.transactionId },
+    });
+  }
+
+  if (status === 'completed' || status === 'approved') {
     await createNotification({
       recipientId: payment.farmerId,
       recipientRole: 'Farmer',

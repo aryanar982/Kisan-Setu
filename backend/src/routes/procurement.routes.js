@@ -13,7 +13,7 @@ router.post(
   asyncHandler(procurementController.recordProcurement)
 );
 
-router.get('/booking/:bookingId', requireAuth, asyncHandler(procurementController.getByBooking));
-router.get('/', requireAuth, asyncHandler(procurementController.listProcurements));
+router.get('/booking/:bookingId', requireAuth, rbac(['admin', 'state_admin', 'district_admin', 'centre_staff']), asyncHandler(procurementController.getByBooking));
+router.get('/', requireAuth, rbac(['admin', 'state_admin', 'district_admin', 'centre_staff']), asyncHandler(procurementController.listProcurements));
 
 module.exports = router;

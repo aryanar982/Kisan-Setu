@@ -46,6 +46,9 @@ export async function apiRequest(endpoint, options = {}) {
     const res = await fetch(url, config);
     const data = await res.json();
     if (!res.ok) {
+      if (res.status === 401) {
+        window.dispatchEvent(new CustomEvent('kisan-auth-expired'));
+      }
       throw new Error(data.message || `Request failed with status ${res.status}`);
     }
     return data;

@@ -2,6 +2,7 @@ const express = require('express');
 const { z } = require('zod');
 const validate = require('../middleware/validate');
 const { requireAuth } = require('../middleware/auth');
+const rbac = require('../middleware/rbac');
 const { asyncHandler } = require('../middleware/errorHandler');
 const cropController = require('../controllers/crop.controller');
 
@@ -15,8 +16,8 @@ const cropCreateSchema = z.object({
   landAreaAcres: z.number().optional(),
 });
 
-router.post('/', requireAuth, validate(cropCreateSchema), asyncHandler(cropController.createCrop));
-router.get('/my', requireAuth, asyncHandler(cropController.getMyCrops));
+router.post('/', requireAuth, rbac(['farmer']), validate(cropCreateSchema), asyncHandler(cropController.createCrop));
+router.get('/my', requireAuth, rbac(['farmer']), asyncHandler(cropController.getMyCrops));
 router.get('/msp-rates', asyncHandler(cropController.getMspRates));
 
 module.exports = router;

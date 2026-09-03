@@ -10,7 +10,7 @@ import {
 import { api } from '../api';
 
 export default function AdminDashboard({ socket }) {
-  const [activeSubTab, setActiveSubTab] = useState('overview'); // 'overview', 'mandis', 'officers', 'complaints', 'audit'
+  const [activeSubTab, setActiveSubTab] = useState('overview'); // 'overview', 'mandis', 'officers', 'approvals', 'complaints', 'audit'
   const [analytics, setAnalytics] = useState(null);
   const [aiRecs, setAiRecs] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,6 +27,7 @@ export default function AdminDashboard({ socket }) {
   const [drilldownModal, setDrilldownModal] = useState(null); // 'farmers', 'payments', 'volume'
   const [hoveredDistrict, setHoveredDistrict] = useState(null);
   const [rerouteApplied, setRerouteApplied] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
 
   // Accessibility Controls (Point 21)
   const [textSize, setTextSize] = useState('normal'); // 'normal', 'large', 'xl'
@@ -83,6 +84,18 @@ export default function AdminDashboard({ socket }) {
     }
   };
 
+  const updateDbtStatus = async (payment, status) => {
+    if (status === 'approved' && !window.confirm(`Approve DBT Payment?\n\n${payment.transactionId}\n₹${payment.amount.toLocaleString('en-IN')}\n\nThis will mark the payment as completed and credit the farmer's account.`)) return;
+    if (status === 'failed' && !window.confirm(`Reject DBT payment ${payment.transactionId}?`)) return;
+    try {
+      await api.updatePaymentStatus(payment._id, { status });
+      setSelectedPayment(null);
+      await loadData(false);
+    } catch (error) {
+      alert(error.message || 'Payment status update failed.');
+    }
+  };
+
   // Ensure consistent KPI numbers (Point 2)
   const kpis = analytics?.kpis || {
     totalFarmers: 35,
@@ -92,11 +105,15 @@ export default function AdminDashboard({ socket }) {
     totalCapacityToday: 232,
     capacityUtilization: 54,
     totalVolumeQuintals: 2208.6,
-    totalPaymentsDisbursed: 7169124,
-    completedPaymentsCount: 50,
-    processingPaymentsAmount: 411600,
-    processingPaymentsCount: 3,
-    pendingPaymentsAmount: 120000,
+    totalPaymentsDisbursed: 0,
+    completedPaymentsCount: 0,
+    dbtTransferred: 0,
+    dbtInitiated: 0,
+    dbtInitiatedCount: 0,
+    dbtTotal: 0,
+    processingPaymentsAmount: 0,
+    processingPaymentsCount: 0,
+    pendingPaymentsAmount: 0,
     failedPaymentsAmount: 0,
     averageWaitMinutes: 14,
     systemHealth: {
@@ -299,7 +316,7 @@ export default function AdminDashboard({ socket }) {
       </div>
 
       {/* SUB-MODULES NAVIGATION TABS (Points 11, 12, 16, 18, 19) */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-[#DDD8CB] pb-2 text-xs font-bold">
+      <div className="admin-tabs-nav flex flex-wrap items-center gap-2 border-b border-[#DDD8CB] pb-2 text-xs font-bold">
         <button
           onClick={() => setActiveSubTab('overview')}
           className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 ${activeSubTab === 'overview' ? 'bg-[#142217] text-white shadow-md' : 'text-[#142217]/70 hover:bg-white'}`}
@@ -319,6 +336,12 @@ export default function AdminDashboard({ socket }) {
           <UserCheck className="w-4 h-4 text-[#C98A2E]" /> Officer Performance ({officers.length})
         </button>
         <button
+          onClick={() => setActiveSubTab('approvals')}
+          className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 ${activeSubTab === 'approvals' ? 'bg-[#142217] text-white shadow-md' : 'text-[#142217]/70 hover:bg-white'}`}
+        >
+          <ShieldCheck className="w-4 h-4 text-[#C98A2E]" /> DBT Approvals ({payments.filter((payment) => payment.status === 'initiated').length})
+        </button>
+        <button
           onClick={() => setActiveSubTab('complaints')}
           className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 ${activeSubTab === 'complaints' ? 'bg-[#142217] text-white shadow-md' : 'text-[#142217]/70 hover:bg-white'}`}
         >
@@ -331,6 +354,34 @@ export default function AdminDashboard({ socket }) {
           <ShieldAlert className="w-4 h-4 text-[#C98A2E]" /> Government Audit Trail
         </button>
       </div>
+
+      {activeSubTab === 'approvals' && (
+        <div className="space-y-5">
+          <div>
+            <h3 className="font-serif text-2xl font-bold text-[#142217]">Pending DBT Approvals</h3>
+            <p className="text-xs text-[#142217]/60">Review initiated payments before they move into PFMS processing.</p>
+          </div>
+          {payments.filter((payment) => payment.status === 'initiated').length === 0 ? (
+            <div className="kisan-card p-10 text-center text-sm text-[#142217]/50">No DBT payments are waiting for approval.</div>
+          ) : (
+            payments.filter((payment) => payment.status === 'initiated').map((payment) => (
+              <div key={payment._id} className="kisan-card p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-l-4 border-l-[#C98A2E]">
+                <div className="space-y-1 text-xs">
+                  <p className="font-mono font-extrabold text-[#142217]">{payment.transactionId}</p>
+                  <p className="font-bold text-[#142217]">{payment.farmerId?.name || 'Verified Farmer'}</p>
+                  <p className="text-[#142217]/60">{payment.centreId?.name || 'Procurement Centre'} · {payment.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</p>
+                  <span className="inline-block px-2 py-1 rounded-full bg-amber-100 text-amber-900 font-extrabold uppercase text-[10px]">Initiated</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setSelectedPayment(payment)} className="btn-outline text-xs py-2 px-3">View Details</button>
+                  <button onClick={() => updateDbtStatus(payment, 'approved')} className="btn-primary text-xs py-2 px-3">Approve DBT</button>
+                  <button onClick={() => updateDbtStatus(payment, 'failed')} className="text-xs py-2 px-3 font-bold text-[#BA3D2C]">Reject</button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       {/* 🔍 POINTS 5 & 6: SEARCH & MULTI-FILTER BAR */}
       <div className="bg-white p-4 rounded-2xl border border-[#DDD8CB] shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
@@ -475,7 +526,7 @@ export default function AdminDashboard({ socket }) {
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[#142217]/60 uppercase tracking-wider">
-                  DBT Paid to Accounts
+                  DBT Transferred
                 </span>
                 <div className="w-10 h-10 rounded-2xl bg-red-100 flex items-center justify-center text-[#BA3D2C] group-hover:scale-110 transition-transform">
                   <IndianRupee className="w-5 h-5" />
@@ -483,7 +534,7 @@ export default function AdminDashboard({ socket }) {
               </div>
               <div className="mt-3">
                 <span className="font-serif text-2xl sm:text-3xl font-extrabold text-[#1B7A38]">
-                  ₹{kpis.totalPaymentsDisbursed.toLocaleString('en-IN')}
+                  ₹{(kpis.dbtTransferred ?? kpis.totalPaymentsDisbursed).toLocaleString('en-IN')}
                 </span>
               </div>
               <div className="mt-2 text-[11px] text-[#142217]/60 flex items-center justify-between">
@@ -534,21 +585,21 @@ export default function AdminDashboard({ socket }) {
               <div className="bg-emerald-50/80 p-3 rounded-xl border border-emerald-200">
                 <span className="text-[11px] text-emerald-800 font-bold block">✓ Completed DBT</span>
                 <p className="font-serif text-lg font-extrabold text-emerald-900 mt-0.5">
-                  ₹{kpis.totalPaymentsDisbursed.toLocaleString('en-IN')}
+                  ₹{(kpis.dbtTransferred ?? kpis.totalPaymentsDisbursed).toLocaleString('en-IN')}
                 </p>
                 <span className="text-[10px] text-emerald-700">{kpis.completedPaymentsCount} credited directly</span>
               </div>
 
               <div className="bg-amber-50/80 p-3 rounded-xl border border-amber-200">
-                <span className="text-[11px] text-amber-800 font-bold block">⚡ Processing in PFMS</span>
+                <span className="text-[11px] text-amber-800 font-bold block">⚡ Initiated / Processing</span>
                 <p className="font-serif text-lg font-extrabold text-amber-900 mt-0.5">
-                  ₹{kpis.processingPaymentsAmount.toLocaleString('en-IN')}
+                  ₹{(kpis.dbtInitiated ?? kpis.processingPaymentsAmount).toLocaleString('en-IN')}
                 </p>
                 <span className="text-[10px] text-amber-700">{kpis.processingPaymentsCount} bank batches active</span>
               </div>
 
               <div className="bg-blue-50/80 p-3 rounded-xl border border-blue-200">
-                <span className="text-[11px] text-blue-800 font-bold block">⏳ Pending Officer Approval</span>
+                <span className="text-[11px] text-blue-800 font-bold block">⏳ Pending</span>
                 <p className="font-serif text-lg font-extrabold text-blue-900 mt-0.5">
                   ₹{kpis.pendingPaymentsAmount.toLocaleString('en-IN')}
                 </p>
@@ -824,6 +875,32 @@ export default function AdminDashboard({ socket }) {
         </div>
       )}
 
+      {selectedPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-lg bg-white rounded-2xl p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="font-serif text-xl font-bold text-[#142217]">DBT Payment Details</h3>
+              <button onClick={() => setSelectedPayment(null)} className="text-xl text-[#142217]/60" aria-label="Close details">×</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div><span className="text-[#142217]/60">PFMS Reference</span><p className="font-mono font-bold">{selectedPayment.transactionId}</p></div>
+              <div><span className="text-[#142217]/60">Amount</span><p className="font-bold text-[#1B7A38]">₹{selectedPayment.amount.toLocaleString('en-IN')}</p></div>
+              <div><span className="text-[#142217]/60">Farmer</span><p className="font-bold">{selectedPayment.farmerId?.name || 'Verified Farmer'}</p></div>
+              <div><span className="text-[#142217]/60">Farmer Mobile</span><p className="font-mono">{selectedPayment.farmerId?.phone || 'Masked'}</p></div>
+              <div><span className="text-[#142217]/60">Mandi</span><p className="font-bold">{selectedPayment.centreId?.name || 'Procurement Centre'}</p></div>
+              <div><span className="text-[#142217]/60">Status</span><p className="font-bold uppercase">{selectedPayment.status}</p></div>
+              <div><span className="text-[#142217]/60">Bank Account</span><p className="font-mono">{selectedPayment.bankAccountMasked}</p></div>
+              <div><span className="text-[#142217]/60">IFSC</span><p className="font-mono">{selectedPayment.bankIfsc}</p></div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setSelectedPayment(null)} className="btn-outline text-xs py-2 px-3">Close</button>
+              {selectedPayment.status === 'initiated' && <button onClick={() => updateDbtStatus(selectedPayment, 'approved')} className="btn-primary text-xs py-2 px-3">Approve DBT (Complete)</button>}
+              {selectedPayment.status === 'processing' && <button onClick={() => updateDbtStatus(selectedPayment, 'completed')} className="btn-primary text-xs py-2 px-3">Mark Completed</button>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* TAB 2: MANDI MANAGEMENT & CENTRE CAPACITY (Points 11 & 18) */}
       {/* ========================================================================= */}
@@ -1036,6 +1113,7 @@ export default function AdminDashboard({ socket }) {
                     </td>
                   </tr>
                 ))}
+
               </tbody>
             </table>
           </div>
@@ -1134,6 +1212,11 @@ export default function AdminDashboard({ socket }) {
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-900">
                               {py.status.toUpperCase()}
                             </span>
+                            {py.status === 'processing' && (
+                              <button onClick={() => updateDbtStatus(py, 'completed')} className="block mt-1 text-[10px] font-bold text-[#1B7A38] hover:underline">
+                                Mark Completed
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1156,7 +1239,7 @@ export default function AdminDashboard({ socket }) {
                     <div className="p-4 bg-[#F7F5EE] rounded-2xl border border-[#DDD8CB]">
                       <span className="text-[11px] text-[#142217]/60 font-bold uppercase">Total Mandi Value Disbursed</span>
                       <p className="font-serif text-2xl font-extrabold text-[#1B7A38] mt-1">
-                        ₹{kpis.totalPaymentsDisbursed.toLocaleString('en-IN')}
+                        ₹{(kpis.dbtTransferred ?? kpis.totalPaymentsDisbursed).toLocaleString('en-IN')}
                       </p>
                       <span className="text-xs text-[#142217]/70">Zero middleman deductions</span>
                     </div>
