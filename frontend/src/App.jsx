@@ -303,33 +303,53 @@ export default function App() {
                 )}
               </button>
 
-              {/* User Account / Login Button */}
-              {farmer || staff ? (
-                <div className="flex items-center gap-2 bg-[#0D170F] px-3 py-1.5 rounded-xl border border-white/15">
-                  <div className="text-right hidden lg:block">
-                    <p className="text-xs font-bold text-white truncate max-w-[120px]">
-                      {farmer ? farmer.name : staff.name}
-                    </p>
-                    <p className="text-[10px] text-[#8FA584] capitalize">
-                      {farmer ? 'Farmer' : staff.role.replace('_', ' ')}
-                    </p>
+              {/* User Account Badge - Contextual to active role (Point 1) */}
+              {(() => {
+                const activeUserDisplay = (() => {
+                  if (role === 'admin') {
+                    return {
+                      name: staff?.name || 'Dr. Sunita Deshmukh',
+                      sub: 'District Collector / Admin',
+                      avatarColor: 'from-[#BA3D2C] to-[#8C291B]',
+                    };
+                  }
+                  if (role === 'officer') {
+                    return {
+                      name: staff?.name || 'Virender Singh',
+                      sub: 'Mandi Officer (Sirsa APMC)',
+                      avatarColor: 'from-[#C98A2E] to-[#9E6819]',
+                    };
+                  }
+                  return {
+                    name: farmer?.name || 'Ramesh Kumar',
+                    sub: `Verified Farmer (${farmer?.village || 'Bhavdin'})`,
+                    avatarColor: 'from-[#1B7A38] to-[#145C2B]',
+                  };
+                })();
+
+                return (
+                  <div className="flex items-center gap-2.5 bg-[#0D170F] px-3 py-1.5 rounded-xl border border-white/15 shadow-inner">
+                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${activeUserDisplay.avatarColor} text-white flex items-center justify-center font-bold text-xs shadow-sm`}>
+                      {activeUserDisplay.name.charAt(0)}
+                    </div>
+                    <div className="text-right hidden lg:block">
+                      <p className="text-xs font-bold text-white truncate max-w-[150px]">
+                        {activeUserDisplay.name}
+                      </p>
+                      <p className="text-[10px] text-[#8FA584] font-medium">
+                        {activeUserDisplay.sub}
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="p-1.5 rounded-lg hover:bg-[#BA3D2C]/20 text-white/70 hover:text-[#BA3D2C] transition-colors"
+                      title="Logout"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
                   </div>
-                  <button
-                    onClick={handleLogout}
-                    className="p-1.5 rounded-lg hover:bg-[#BA3D2C]/20 text-white/70 hover:text-[#BA3D2C] transition-colors"
-                    title="Logout"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setIsAuthModalOpen(true)}
-                  className="btn-gold text-xs py-2 px-3.5"
-                >
-                  <LogIn className="w-3.5 h-3.5" /> Sign In
-                </button>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -385,7 +405,7 @@ export default function App() {
         )}
 
         {role === 'admin' && (
-          <AdminDashboard />
+          <AdminDashboard socket={socket} />
         )}
       </main>
 
