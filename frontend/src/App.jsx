@@ -32,7 +32,7 @@ export default function App() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpInput, setOtpInput] = useState('123456');
   const [testOtpNotice, setTestOtpNotice] = useState('');
-  const [staffEmail, setStaffEmail] = useState('officer.sirsa@kisansetu.gov.in');
+  const [staffEmail, setStaffEmail] = useState('officer.lucknow@kisansetu.gov.in');
   const [staffPassword, setStaffPassword] = useState('password123');
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -60,9 +60,9 @@ export default function App() {
           _id: '6a989238b12c298f488371df',
           name: 'Ramesh Kumar',
           phone: '9876500001',
-          village: 'Bhavdin',
-          district: 'Sirsa',
-          state: 'Haryana',
+          village: 'Mohanlalganj',
+          district: 'Lucknow',
+          state: 'Uttar Pradesh',
         });
       }
       loadNotifications();
@@ -153,7 +153,7 @@ export default function App() {
       if (targetRole === 'officer' && !staff) {
         try {
           const res = await api.staffLogin({
-            email: 'officer.sirsa@kisansetu.gov.in',
+            email: 'officer.lucknow@kisansetu.gov.in',
             password: 'password123',
           });
           if (res.success) {
@@ -167,7 +167,7 @@ export default function App() {
       } else if (targetRole === 'admin' && !staff) {
         try {
           const res = await api.staffLogin({
-            email: 'admin.sirsa@kisansetu.gov.in',
+            email: 'admin.lucknow@kisansetu.gov.in',
             password: 'password123',
           });
           if (res.success) {
@@ -207,7 +207,7 @@ export default function App() {
         <div className="flex items-center gap-2">
           <span className="inline-block w-2 h-2 rounded-full bg-[#38EF7D] animate-ping"></span>
           <span className="font-semibold text-white/90">
-            हरियाणा राज्य कृषि विपणन बोर्ड · Live Mandi Network Synchronized
+            उत्तर प्रदेश राज्य कृषि उत्पादन मण्डी परिषद (UP Mandi Parishad) · Live Mandi Network Synchronized
           </span>
           <span className="hidden sm:inline text-white/40">|</span>
           <span className="hidden sm:inline text-white/60">Season: Rabi 2026 · MSP Guaranteed</span>
@@ -339,20 +339,20 @@ export default function App() {
                   if (role === 'admin') {
                     return {
                       name: staff?.name || 'Dr. Sunita Deshmukh',
-                      sub: 'District Collector / Admin',
+                      sub: 'District Collector / Admin (Lucknow)',
                       avatarColor: 'from-[#BA3D2C] to-[#8C291B]',
                     };
                   }
                   if (role === 'officer') {
                     return {
                       name: staff?.name || 'Virender Singh',
-                      sub: 'Mandi Officer (Sirsa APMC)',
+                      sub: 'Mandi Officer (Lucknow APMC)',
                       avatarColor: 'from-[#C98A2E] to-[#9E6819]',
                     };
                   }
                   return {
                     name: farmer?.name || 'Ramesh Kumar',
-                    sub: `Verified Farmer (${farmer?.village || 'Bhavdin'})`,
+                    sub: `Verified Farmer (${farmer?.village || 'Mohanlalganj'}, ${farmer?.district || 'Lucknow'})`,
                     avatarColor: 'from-[#1B7A38] to-[#145C2B]',
                   };
                 })();
@@ -658,7 +658,7 @@ export default function App() {
                     }}
                     className="w-full text-left p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold text-xs flex items-center justify-between transition-colors"
                   >
-                    <span>🚜 Farmer (Ramesh Kumar - Sirsa)</span>
+                    <span>🚜 Farmer (Ramesh Kumar - Lucknow)</span>
                     <span className="text-[10px] text-emerald-700">1-Click Sign In ➔</span>
                   </button>
 
@@ -667,7 +667,7 @@ export default function App() {
                     onClick={async () => {
                       setAuthLoading(true);
                       try {
-                        const res = await api.staffLogin({ email: 'officer.sirsa@kisansetu.gov.in', password: 'password123' });
+                        const res = await api.staffLogin({ email: 'officer.lucknow@kisansetu.gov.in', password: 'password123' });
                         if (res.success) {
                           setAuthToken(res.data.accessToken);
                           setCurrentUser({ ...res.data.staff, role: res.data.role });
@@ -682,7 +682,7 @@ export default function App() {
                     }}
                     className="w-full text-left p-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold text-xs flex items-center justify-between transition-colors"
                   >
-                    <span>⚖️ Mandi Officer (Virender Singh - Sirsa APMC)</span>
+                    <span>⚖️ Mandi Officer (Virender Singh - Lucknow APMC)</span>
                     <span className="text-[10px] text-amber-700">1-Click Sign In ➔</span>
                   </button>
 
@@ -691,7 +691,7 @@ export default function App() {
                     onClick={async () => {
                       setAuthLoading(true);
                       try {
-                        const res = await api.staffLogin({ email: 'admin.sirsa@kisansetu.gov.in', password: 'password123' });
+                        const res = await api.staffLogin({ email: 'admin.lucknow@kisansetu.gov.in', password: 'password123' });
                         if (res.success) {
                           setAuthToken(res.data.accessToken);
                           setCurrentUser({ ...res.data.staff, role: res.data.role });
@@ -706,7 +706,7 @@ export default function App() {
                     }}
                     className="w-full text-left p-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-900 font-bold text-xs flex items-center justify-between transition-colors"
                   >
-                    <span>🏛️ State / District Admin (Dr. Sunita Deshmukh)</span>
+                    <span>🏛️ State / District Admin (Dr. Sunita Deshmukh - UP Mandi Parishad)</span>
                     <span className="text-[10px] text-red-700">1-Click Sign In ➔</span>
                   </button>
                 </div>

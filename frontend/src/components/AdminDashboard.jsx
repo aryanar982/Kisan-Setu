@@ -121,11 +121,16 @@ export default function AdminDashboard({ socket }) {
 
   const centres = analytics?.centrePerformance || [];
   const heatmap = analytics?.districtHeatmap || [
-    { district: 'Sirsa', totalCentres: 1, totalCapacity: 50, totalBooked: 25, activeQueue: 4, congestionScore: 50, procuredQuintals: 460 },
-    { district: 'Kaithal', totalCentres: 1, totalCapacity: 40, totalBooked: 25, activeQueue: 2, congestionScore: 63, procuredQuintals: 390 },
-    { district: 'Fatehabad', totalCentres: 1, totalCapacity: 45, totalBooked: 25, activeQueue: 8, congestionScore: 91, procuredQuintals: 440 },
-    { district: 'Hisar', totalCentres: 1, totalCapacity: 60, totalBooked: 25, activeQueue: 1, congestionScore: 42, procuredQuintals: 520 },
-    { district: 'Karnal', totalCentres: 1, totalCapacity: 55, totalBooked: 25, activeQueue: 3, congestionScore: 45, procuredQuintals: 480 },
+    { district: 'Lucknow', totalCentres: 1, totalCapacity: 50, totalBooked: 25, activeQueue: 4, congestionScore: 50, procuredQuintals: 460 },
+    { district: 'Kanpur', totalCentres: 1, totalCapacity: 40, totalBooked: 25, activeQueue: 2, congestionScore: 63, procuredQuintals: 390 },
+    { district: 'Prayagraj', totalCentres: 1, totalCapacity: 45, totalBooked: 25, activeQueue: 8, congestionScore: 91, procuredQuintals: 440 },
+    { district: 'Bareilly', totalCentres: 1, totalCapacity: 60, totalBooked: 25, activeQueue: 1, congestionScore: 42, procuredQuintals: 520 },
+    { district: 'Gorakhpur', totalCentres: 1, totalCapacity: 55, totalBooked: 25, activeQueue: 3, congestionScore: 45, procuredQuintals: 480 },
+    { district: 'Varanasi', totalCentres: 1, totalCapacity: 45, totalBooked: 22, activeQueue: 2, congestionScore: 49, procuredQuintals: 360 },
+    { district: 'Agra', totalCentres: 1, totalCapacity: 50, totalBooked: 28, activeQueue: 3, congestionScore: 56, procuredQuintals: 410 },
+    { district: 'Meerut', totalCentres: 1, totalCapacity: 55, totalBooked: 38, activeQueue: 4, congestionScore: 69, procuredQuintals: 490 },
+    { district: 'Jhansi', totalCentres: 1, totalCapacity: 40, totalBooked: 16, activeQueue: 1, congestionScore: 40, procuredQuintals: 280 },
+    { district: 'Ayodhya', totalCentres: 1, totalCapacity: 45, totalBooked: 24, activeQueue: 2, congestionScore: 53, procuredQuintals: 350 },
   ];
 
   const officers = analytics?.officerPerformance || [];
@@ -156,8 +161,8 @@ export default function AdminDashboard({ socket }) {
     const rows = filteredProcurements.map((p) => [
       p.farmerId ? p.farmerId.name : 'Ramesh Kumar',
       p.farmerId ? p.farmerId.phone : '9876500001',
-      p.centreId ? p.centreId.district : 'Sirsa',
-      p.centreId ? p.centreId.name : 'Sirsa Centre',
+      p.centreId ? p.centreId.district : 'Lucknow',
+      p.centreId ? p.centreId.name : 'Lucknow Procurement Centre',
       p.crop,
       p.netWeight,
       p.qualityGrade,
@@ -205,10 +210,11 @@ export default function AdminDashboard({ socket }) {
           <button
             onClick={() => loadData(true)}
             disabled={isRefreshing}
-            className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all"
-            title="Sync Live Data"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all text-xs font-bold"
+            title="Sync UP Mandi Network"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#EBB668]' : ''}`} />
+            <span>Sync UP Mandi Network</span>
           </button>
         </div>
       </div>
@@ -220,9 +226,9 @@ export default function AdminDashboard({ socket }) {
             <CloudRain className="w-4 h-4" />
           </div>
           <div>
-            <span className="font-extrabold text-amber-900 block">Haryana Agriculture & Weather Advisory</span>
+            <span className="font-extrabold text-amber-900 block">Uttar Pradesh Agriculture & Weather Advisory</span>
             <p className="text-amber-800/90 text-[11px]">
-              Light showers forecasted in Northern Haryana (Karnal, Kurukshetra) by evening. APMC mandis instructed to deploy tarpaulin covers on weighbridge bays.
+              Light showers forecasted in Western UP (Bareilly, Meerut) by evening. APMC mandis instructed to deploy tarpaulin covers on weighbridge bays.
             </p>
           </div>
         </div>
@@ -241,16 +247,16 @@ export default function AdminDashboard({ socket }) {
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase font-extrabold text-[#EBB668] tracking-widest bg-[#C98A2E]/20 border border-[#C98A2E]/40 px-2.5 py-0.5 rounded-full">
-              Haryana State Civil Supplies & APMC Directorate
+              Uttar Pradesh Mandi Parishad (UPMRP)
             </span>
             <span className="text-white/40 text-xs">·</span>
             <span className="text-xs text-white/70">Governance Console</span>
           </div>
           <h2 className="font-serif text-2xl sm:text-3xl font-extrabold text-white mt-1">
-            Real-Time Procurement Analytics & Governance Desk
+            Uttar Pradesh Procurement Analytics & Governance Dashboard
           </h2>
           <p className="text-xs text-[#8FA584] max-w-xl mt-1 leading-relaxed">
-            Capacity-aware monitoring across 5 APMC procurement hubs, automated digital weighbridge records, and PFMS Direct Benefit Transfer disbursals.
+            Capacity-aware monitoring across 10 UP APMC procurement hubs, automated digital weighbridge records, and PFMS Direct Benefit Transfer disbursals.
           </p>
         </div>
 
@@ -356,12 +362,17 @@ export default function AdminDashboard({ socket }) {
             onChange={(e) => setSelectedDistrictFilter(e.target.value)}
             className="bg-[#F7F5EE] border border-[#DDD8CB] rounded-xl px-2.5 py-2 text-xs font-semibold outline-none cursor-pointer hover:border-[#C98A2E]"
           >
-            <option value="All">All Districts</option>
-            <option value="Sirsa">Sirsa</option>
-            <option value="Kaithal">Kaithal</option>
-            <option value="Fatehabad">Fatehabad</option>
-            <option value="Hisar">Hisar</option>
-            <option value="Karnal">Karnal</option>
+            <option value="All">All UP Mandis</option>
+            <option value="Lucknow">Lucknow</option>
+            <option value="Kanpur">Kanpur</option>
+            <option value="Prayagraj">Prayagraj</option>
+            <option value="Bareilly">Bareilly</option>
+            <option value="Gorakhpur">Gorakhpur</option>
+            <option value="Varanasi">Varanasi</option>
+            <option value="Agra">Agra</option>
+            <option value="Meerut">Meerut</option>
+            <option value="Jhansi">Jhansi</option>
+            <option value="Ayodhya">Ayodhya</option>
           </select>
 
           <select
@@ -560,7 +571,7 @@ export default function AdminDashboard({ socket }) {
               <div>
                 <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#142217] flex items-center gap-2">
                   <MapPin className="w-5 h-5 text-[#BA3D2C]" />
-                  Interactive Haryana Mandi Congestion Heatmap
+                  Uttar Pradesh Mandi Grid
                 </h3>
                 <p className="text-xs text-[#142217]/60">
                   Click any district to filter statewide metrics. Color indicates capacity congestion.
@@ -581,9 +592,9 @@ export default function AdminDashboard({ socket }) {
               </div>
             </div>
 
-            {/* Interactive SVG Geo-Layout for Haryana Districts */}
+            {/* Interactive Uttar Pradesh Mandi Grid */}
             <div className="bg-[#F7F5EE] p-6 rounded-3xl border border-[#DDD8CB] relative overflow-hidden">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                 {heatmap.map((d) => {
                   const isSelected = selectedDistrictFilter === d.district;
                   const isCritical = d.congestionScore >= 80;
@@ -724,15 +735,15 @@ export default function AdminDashboard({ socket }) {
                 <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 space-y-1">
                   <div className="flex items-center gap-1.5 text-red-900 font-bold">
                     <AlertTriangle className="w-4 h-4 text-red-700" />
-                    <span>Fatehabad Mandi Bottleneck (91% Capacity)</span>
+                    <span>Prayagraj Mandi Bottleneck (91% Capacity)</span>
                   </div>
                   <p className="text-red-800/80 leading-relaxed text-[11px]">
-                    Expected queue wait: 35+ mins. Recommend auto-redirecting incoming farmers to Hisar APMC (12 km away, 42% capacity).
+                    Expected queue wait: 35+ mins. Recommend auto-redirecting incoming farmers to Kanpur APMC or Varanasi APMC (42% capacity).
                   </p>
                   <button
                     onClick={() => {
                       setRerouteApplied(true);
-                      alert('✓ AI Auto-Reroute Applied: Farmers in Fatehabad district are now recommended Hisar Mandi with guaranteed priority slot.');
+                      alert('✓ AI Auto-Reroute Applied: Farmers in Prayagraj district are now recommended Kanpur / Varanasi Mandi with guaranteed priority slot.');
                     }}
                     disabled={rerouteApplied}
                     className="btn-gold text-[10px] py-1.5 px-3 font-bold mt-1 shadow-sm"
@@ -744,7 +755,7 @@ export default function AdminDashboard({ socket }) {
                 <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1">
                   <span className="font-bold text-emerald-900 flex items-center gap-1">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-700" />
-                    Sirsa & Hisar Optimal Flow
+                    Lucknow & Bareilly Optimal Flow
                   </span>
                   <p className="text-emerald-800/80 text-[11px]">
                     Moisture clearance rate is 98.4%. Digital weighbridge turnaround averaging 5.8 minutes per vehicle.
@@ -757,7 +768,7 @@ export default function AdminDashboard({ socket }) {
                     Weighbridge Bay Expansion
                   </span>
                   <p className="text-blue-800/80 text-[11px]">
-                    Karnal APMC seeing peak afternoon paddy inflow. Recommend deploying Mobile Weighbridge Bay #3.
+                    Gorakhpur APMC seeing peak afternoon paddy inflow. Recommend deploying Mobile Weighbridge Bay #3.
                   </p>
                 </div>
               </div>
