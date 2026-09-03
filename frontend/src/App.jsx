@@ -19,6 +19,7 @@ export default function App() {
   const [farmer, setFarmer] = useState(null);
   const [staff, setStaff] = useState(null);
   const [activeFarmerTab, setActiveFarmerTab] = useState('dashboard');
+  const [isLoggedOut, setIsLoggedOut] = useState(false);
 
   // Modals and Drawers
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -113,6 +114,7 @@ export default function App() {
         setAuthToken(res.data.accessToken);
         setCurrentUser({ ...res.data.farmer, role: 'farmer' });
         setFarmer(res.data.farmer);
+        setIsLoggedOut(false);
         setIsAuthModalOpen(false);
         setRole('farmer');
         setOtpSent(false);
@@ -133,6 +135,7 @@ export default function App() {
         setAuthToken(res.data.accessToken);
         setCurrentUser({ ...res.data.staff, role: res.data.role });
         setStaff(res.data.staff);
+        setIsLoggedOut(false);
         setIsAuthModalOpen(false);
         if (res.data.role === 'centre_staff') setRole('officer');
         else setRole('admin');
@@ -146,43 +149,53 @@ export default function App() {
 
   const handleSwitchRole = async (targetRole) => {
     setRole(targetRole);
-    if (targetRole === 'officer' && !staff) {
-      try {
-        const res = await api.staffLogin({
-          email: 'officer.sirsa@kisansetu.gov.in',
-          password: 'password123',
-        });
-        if (res.success) {
-          setAuthToken(res.data.accessToken);
-          setCurrentUser({ ...res.data.staff, role: res.data.role });
-          setStaff(res.data.staff);
+    if (!isLoggedOut) {
+      if (targetRole === 'officer' && !staff) {
+        try {
+          const res = await api.staffLogin({
+            email: 'officer.sirsa@kisansetu.gov.in',
+            password: 'password123',
+          });
+          if (res.success) {
+            setAuthToken(res.data.accessToken);
+            setCurrentUser({ ...res.data.staff, role: res.data.role });
+            setStaff(res.data.staff);
+          }
+        } catch (e) {
+          console.warn('Auto staff auth notice:', e.message);
         }
-      } catch (e) {
-        console.warn('Auto staff auth notice:', e.message);
-      }
-    } else if (targetRole === 'admin' && !staff) {
-      try {
-        const res = await api.staffLogin({
-          email: 'admin.sirsa@kisansetu.gov.in',
-          password: 'password123',
-        });
-        if (res.success) {
-          setAuthToken(res.data.accessToken);
-          setCurrentUser({ ...res.data.staff, role: res.data.role });
-          setStaff(res.data.staff);
+      } else if (targetRole === 'admin' && !staff) {
+        try {
+          const res = await api.staffLogin({
+            email: 'admin.sirsa@kisansetu.gov.in',
+            password: 'password123',
+          });
+          if (res.success) {
+            setAuthToken(res.data.accessToken);
+            setCurrentUser({ ...res.data.staff, role: res.data.role });
+            setStaff(res.data.staff);
+          }
+        } catch (e) {
+          console.warn('Auto admin auth notice:', e.message);
         }
-      } catch (e) {
-        console.warn('Auto admin auth notice:', e.message);
       }
     }
   };
 
   const handleLogout = () => {
+    setIsLoggedOut(true);
     setAuthToken(null);
     setCurrentUser(null);
     setFarmer(null);
     setStaff(null);
-    alert('Logged out successfully.');
+    localStorage.removeItem('kisan_auth_token');
+    localStorage.removeItem('kisan_user_data');
+    if (role === 'admin' || role === 'officer') {
+      setAuthMode('staff_login');
+    } else {
+      setAuthMode('farmer_otp');
+    }
+    setIsAuthModalOpen(true);
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -303,8 +316,25 @@ export default function App() {
                 )}
               </button>
 
-              {/* User Account Badge - Contextual to active role (Point 1) */}
+              {/* User Account Badge or Sign In Button */}
               {(() => {
+                const isAuthenticated = !isLoggedOut && Boolean((role === 'farmer' && farmer) || (role !== 'farmer' && staff));
+
+                if (!isAuthenticated) {
+                  return (
+                    <button
+                      onClick={() => {
+                        if (role === 'admin' || role === 'officer') setAuthMode('staff_login');
+                        else setAuthMode('farmer_otp');
+                        setIsAuthModalOpen(true);
+                      }}
+                      className="btn-gold text-xs py-2 px-3.5 flex items-center gap-1.5 font-bold shadow-md hover:scale-105 transition-all"
+                    >
+                      <LogIn className="w-3.5 h-3.5" /> Sign In
+                    </button>
+                  );
+                }
+
                 const activeUserDisplay = (() => {
                   if (role === 'admin') {
                     return {
@@ -343,7 +373,7 @@ export default function App() {
                     <button
                       onClick={handleLogout}
                       className="p-1.5 rounded-lg hover:bg-[#BA3D2C]/20 text-white/70 hover:text-[#BA3D2C] transition-colors"
-                      title="Logout"
+                      title="Logout of session"
                     >
                       <LogOut className="w-4 h-4" />
                     </button>
@@ -471,6 +501,14 @@ export default function App() {
                 <span className="text-[10px] uppercase font-bold tracking-wider bg-[#C98A2E] text-black px-2.5 py-0.5 rounded-full">
                   Verified Portal
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  title="Close Modal"
+                >
+                  ✕
+                </button>
               </div>
               <h3 className="font-serif text-xl font-bold">
                 {authMode === 'farmer_otp' ? 'Farmer OTP Authentication' : 'Mandi Officer & Admin Sign In'}
@@ -593,6 +631,86 @@ export default function App() {
                   </div>
                 </form>
               )}
+
+              {/* 1-Click Quick Demo Access */}
+              <div className="pt-3 border-t border-[#DDD8CB] space-y-2">
+                <span className="text-[10px] text-[#142217]/60 font-extrabold uppercase tracking-wider block text-center">
+                  Instant Demo 1-Click Sign In
+                </span>
+                <div className="grid grid-cols-1 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setAuthLoading(true);
+                      try {
+                        const res = await api.login({ phone: '9876500001', password: 'password123' });
+                        if (res.success) {
+                          setAuthToken(res.data.accessToken);
+                          setCurrentUser({ ...res.data.farmer, role: 'farmer' });
+                          setFarmer(res.data.farmer);
+                          setIsLoggedOut(false);
+                          setIsAuthModalOpen(false);
+                          setRole('farmer');
+                        }
+                      } finally {
+                        setAuthLoading(false);
+                      }
+                    }}
+                    className="w-full text-left p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold text-xs flex items-center justify-between transition-colors"
+                  >
+                    <span>🚜 Farmer (Ramesh Kumar - Sirsa)</span>
+                    <span className="text-[10px] text-emerald-700">1-Click Sign In ➔</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setAuthLoading(true);
+                      try {
+                        const res = await api.staffLogin({ email: 'officer.sirsa@kisansetu.gov.in', password: 'password123' });
+                        if (res.success) {
+                          setAuthToken(res.data.accessToken);
+                          setCurrentUser({ ...res.data.staff, role: res.data.role });
+                          setStaff(res.data.staff);
+                          setIsLoggedOut(false);
+                          setIsAuthModalOpen(false);
+                          setRole('officer');
+                        }
+                      } finally {
+                        setAuthLoading(false);
+                      }
+                    }}
+                    className="w-full text-left p-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-bold text-xs flex items-center justify-between transition-colors"
+                  >
+                    <span>⚖️ Mandi Officer (Virender Singh - Sirsa APMC)</span>
+                    <span className="text-[10px] text-amber-700">1-Click Sign In ➔</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setAuthLoading(true);
+                      try {
+                        const res = await api.staffLogin({ email: 'admin.sirsa@kisansetu.gov.in', password: 'password123' });
+                        if (res.success) {
+                          setAuthToken(res.data.accessToken);
+                          setCurrentUser({ ...res.data.staff, role: res.data.role });
+                          setStaff(res.data.staff);
+                          setIsLoggedOut(false);
+                          setIsAuthModalOpen(false);
+                          setRole('admin');
+                        }
+                      } finally {
+                        setAuthLoading(false);
+                      }
+                    }}
+                    className="w-full text-left p-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-900 font-bold text-xs flex items-center justify-between transition-colors"
+                  >
+                    <span>🏛️ State / District Admin (Dr. Sunita Deshmukh)</span>
+                    <span className="text-[10px] text-red-700">1-Click Sign In ➔</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
