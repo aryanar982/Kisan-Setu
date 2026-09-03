@@ -623,7 +623,7 @@ export default function App() {
               Secure digital procurement coordination for farmers, mandi officers, and administrators.
             </div>
             <div>
-              Version 2.6 Pro · Branch: <span className="font-mono text-white/60">aryan</span>
+              Version 2.6 Pro
             </div>
           </div>
         </div>
